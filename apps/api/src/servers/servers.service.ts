@@ -809,6 +809,13 @@ export class ServersService implements OnApplicationBootstrap, OnApplicationShut
       data.configJson = JSON.stringify(merged);
       launchChanged = true; // settings feed the generated INI / command line
     }
+    if (dto.extraEnv !== undefined) {
+      const next = JSON.stringify(dto.extraEnv);
+      if (next !== (existing.extraEnvJson ?? "[]")) {
+        data.extraEnvJson = next;
+        launchChanged = true;
+      }
+    }
     if (launchChanged) data.configDirty = true; // → UI shows the Restart button
 
     const updated = await this.prisma.server.update({
@@ -1195,6 +1202,7 @@ export class ServersService implements OnApplicationBootstrap, OnApplicationShut
       iconUrl,
       imageTag: server.imageTag,
       updateRequested: server.updateRequested,
+      extraEnv: JSON.parse(server.extraEnvJson ?? "[]") as Array<{ key: string; value: string }>,
     });
   }
 
@@ -1935,6 +1943,7 @@ export class ServersService implements OnApplicationBootstrap, OnApplicationShut
       modIds: JSON.parse(row.modIds) as number[],
       ramLimitMb: row.ramLimitMb,
       cpuLimit: row.cpuLimit,
+      extraEnv: JSON.parse(row.extraEnvJson ?? "[]") as Array<{ key: string; value: string }>,
       artwork: row.artworkJson ? (JSON.parse(row.artworkJson) as GameArtwork) : null,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
