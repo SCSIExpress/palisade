@@ -81,34 +81,34 @@ const settings: SettingDef[] = [
   }),
 
   // ── Rates ────────────────────────────────────────────────────────────────────
-  pset("EXP_RATE", "EXP rate", "Rates", "float", 1, x("Experience multiplier.")),
-  pset("PAL_CAPTURE_RATE", "Pal capture rate", "Rates", "float", 1, x("Capture success multiplier.")),
-  pset("PAL_SPAWN_NUM_RATE", "Pal spawn rate", "Rates", "float", 1, x("How many Pals spawn in the world.")),
-  pset("COLLECTION_DROP_RATE", "Gather drop rate", "Rates", "float", 1, x("Yield from gathering nodes.")),
-  pset("ENEMY_DROP_ITEM_RATE", "Enemy drop rate", "Rates", "float", 1, x("Item drops from defeated enemies.")),
-  pset("DAYTIME_SPEEDRATE", "Daytime speed", "Rates", "float", 1, x("How fast daytime passes.")),
-  pset("NIGHTTIME_SPEEDRATE", "Nighttime speed", "Rates", "float", 1, x("How fast nighttime passes.")),
+  pset("EXP_RATE", "EXP rate", "Progression", "float", 1, x("Experience multiplier.")),
+  pset("PAL_CAPTURE_RATE", "Pal capture rate", "Progression", "float", 1, x("Capture success multiplier.")),
+  pset("PAL_SPAWN_NUM_RATE", "Pal spawn rate", "Progression", "float", 1, x("How many Pals spawn in the world.")),
+  pset("COLLECTION_DROP_RATE", "Gather drop rate", "Progression", "float", 1, x("Yield from gathering nodes.")),
+  pset("ENEMY_DROP_ITEM_RATE", "Enemy drop rate", "Progression", "float", 1, x("Item drops from defeated enemies.")),
+  pset("DAYTIME_SPEEDRATE", "Daytime speed", "World", "float", 1, x("How fast daytime passes.")),
+  pset("NIGHTTIME_SPEEDRATE", "Nighttime speed", "World", "float", 1, x("How fast nighttime passes.")),
 
   // ── Base building / guilds ───────────────────────────────────────────────────
-  pset("BASE_CAMP_MAX_NUM", "Max base camps", "Bases", "int", 128, {
+  pset("BASE_CAMP_MAX_NUM", "Max base camps", "Building", "int", 128, {
     min: 1,
     max: 128,
     step: 1,
     help: "Total base camps allowed on the server.",
   }),
-  pset("BASE_CAMP_WORKER_MAXNUM", "Base workers per camp", "Bases", "int", 15, {
+  pset("BASE_CAMP_WORKER_MAXNUM", "Base workers per camp", "Building", "int", 15, {
     min: 1,
     max: 50,
     step: 1,
     help: "Max Pals assignable to one base camp.",
   }),
-  pset("MAX_BUILDING_LIMIT_NUM", "Building limit (0 = none)", "Bases", "int", 0, {
+  pset("MAX_BUILDING_LIMIT_NUM", "Building limit (0 = none)", "Building", "int", 0, {
     min: 0,
     max: 100000,
     step: 100,
     help: "Cap on placed structures per base (0 = unlimited).",
   }),
-  pset("GUILD_PLAYER_MAX_NUM", "Max guild members", "Guilds", "int", 20, {
+  pset("GUILD_PLAYER_MAX_NUM", "Max guild members", "Guild", "int", 20, {
     min: 1,
     max: 100,
     step: 1,
