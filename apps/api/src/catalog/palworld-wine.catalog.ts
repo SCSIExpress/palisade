@@ -31,6 +31,16 @@ function pset(
 const x = (help: string): Partial<SettingDef> => ({ min: 0, max: 5, step: 0.1, unit: "×", help });
 
 const settings: SettingDef[] = [
+  // ── Version ────────────────────────────────────────────────────────────────
+  // Not an INI setting — this one drives the image's own SteamCMD step, and it is
+  // the only lever that updates a Wine server's game files: the image runs SteamCMD
+  // on start only for this flag, a .update_requested sentinel, or a missing binary.
+  // Off by default so an existing server's boot time doesn't change unannounced —
+  // the image validates the whole Windows depot when it updates.
+  pset("ALWAYS_UPDATE_ON_START", "Update game files on start", "Version", "bool", false, {
+    help: "Run SteamCMD on every start to update Palworld to the latest build. Adds time to each start because the image validates the installed files. Leave off to pin the server to its installed build.",
+  }),
+
   // ── General ────────────────────────────────────────────────────────────────
   pset("SERVER_DESCRIPTION", "Server description", "General", "string", "", {
     help: "Description shown next to the server in the browser.",
