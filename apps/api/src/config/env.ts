@@ -7,7 +7,12 @@ import { z } from "zod";
 const schema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   API_PORT: z.coerce.number().int().positive().default(8787),
-  PUBLIC_BASE_URL: z.string().url().default("http://localhost:3000"),
+  // Tolerant of a scheme-less value ("10.0.0.5:8970" → "http://10.0.0.5:8970") —
+  // a common way to fill the Unraid field, and .url() alone would crash the boot.
+  PUBLIC_BASE_URL: z.preprocess(
+    (v) => (typeof v === "string" && v && !/^[a-z][a-z0-9+.-]*:\/\//i.test(v) ? `http://${v}` : v),
+    z.string().url().default("http://localhost:3000"),
+  ),
 
   DATA_DIR: z.string().default("./data"),
   DATABASE_URL: z.string().default("file:./data/db.sqlite"),
@@ -69,7 +74,14 @@ export function resetEnvCache(): void {
 
 export function loadEnv(): AppEnv {
   if (cached) return cached;
-  const parsed = schema.safeParse(process.env);
+  // Unraid (and docker-compose) pass BLANK template fields as EMPTY STRINGS, not
+  // absent vars. Zod .default()s only apply to undefined, so "" would skip them and
+  // then crash stricter validators (PUBLIC_BASE_URL's .url() rejected "" and took the
+  // whole boot down — GH #6). Treat empty/whitespace-only values as unset.
+  const raw = Object.fromEntries(
+    Object.entries(process.env).filter(([, v]) => typeof v === "string" && v.trim() !== ""),
+  );
+  const parsed = schema.safeParse(raw);
   if (!parsed.success) {
     const issues = parsed.error.issues
       .map((i) => `  - ${i.path.join(".")}: ${i.message}`)
