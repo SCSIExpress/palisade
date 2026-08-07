@@ -199,6 +199,7 @@ const STARTUP_DEADLINE_MS_BY_GAME: Partial<Record<Game, number>> = {
   [Game.ASA]: 45 * 60_000, // ~13 GB depot on first boot
   [Game.ASE]: 45 * 60_000,
   [Game.SEVEN_DAYS]: 45 * 60_000, // ~17 GB via LinuxGSM
+  [Game.CS2]: 60 * 60_000, // ~35 GB depot on first boot — the biggest download in the panel
 };
 const startupDeadlineMs = (game: Game): number =>
   STARTUP_DEADLINE_MS_BY_GAME[game] ?? STARTUP_DEADLINE_MS_DEFAULT;
