@@ -42,4 +42,5 @@ export const GAME_VERSION_PINNING: Record<Game, VersionPinKind> = {
   [Game.CORE_KEEPER]: "none",
   [Game.RUST]: "none",
   [Game.BEAMMP]: "none",
+  [Game.CS2]: "none", // the image runs a SteamCMD update on every start — restart = update
 };

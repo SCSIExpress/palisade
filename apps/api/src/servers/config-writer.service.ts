@@ -79,7 +79,8 @@ export class ServerConfigWriter {
       game === Game.CORE_KEEPER ||
       game === Game.RUST ||
       game === Game.BEAMMP ||
-      game === Game.PALWORLD_WINE
+      game === Game.PALWORLD_WINE ||
+      game === Game.CS2 // pure env (joedwards32 renders its own cfgs)
     )
       return;
 

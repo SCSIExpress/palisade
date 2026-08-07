@@ -166,6 +166,15 @@ const ZOMBOID_GROUPS: SettingGroup[] = [
   { id: "backups", label: "Backups", Icon: Clock, cats: ["Game backups", "Anti-cheat"] },
 ];
 
+// Counter-Strike 2 (env-driven joedwards32 image).
+const CS2_GROUPS: SettingGroup[] = [
+  { id: "server", label: "Server", Icon: SlidersHorizontal, cats: ["Server"] },
+  { id: "workshop", label: "Workshop", Icon: Package, cats: ["Workshop"] },
+  { id: "bots", label: "Bots", Icon: User, cats: ["Bots"] },
+  { id: "cstv", label: "CSTV", Icon: MessageSquare, cats: ["CSTV"] },
+  { id: "logging", label: "Logging", Icon: Wrench, cats: ["Logging"] },
+];
+
 const VALHEIM_GROUPS: SettingGroup[] = [
   { id: "version", label: "Version", Icon: GitBranch, cats: ["Version"] },
   { id: "world", label: "World", Icon: MapIcon, cats: ["World"] },
@@ -251,7 +260,9 @@ export function SettingsForm({
                     ? ENSHROUDED_GROUPS
                     : game === Game.ZOMBOID
                       ? ZOMBOID_GROUPS
-                      : ARK_GROUPS;
+                      : game === Game.CS2
+                        ? CS2_GROUPS
+                        : ARK_GROUPS;
   const MAPPED_CATS = new Set(GROUPS.flatMap((g) => g.cats));
 
   // A map-specific category is shown only when the server's map matches it.

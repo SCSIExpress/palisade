@@ -334,6 +334,22 @@ export function ConnectCommand({
     );
   }
 
+  if (game === Game.CS2) {
+    return (
+      <div className={className}>
+        <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-slate-400">
+          <Terminal className="h-3.5 w-3.5" /> Console connect (in-game)
+        </div>
+        <CopyRow value={`connect ${hostOr}:${gamePort}`} title="Paste into the CS2 console" />
+        <p className="mt-1 text-[11px] leading-snug text-slate-500">
+          In CS2: enable the developer console (Settings → Game), press <span className="font-mono">~</span> and
+          paste this. Public listing needs a GSLT token (Settings tab). Online, friends use your public IP with
+          the same port.
+        </p>
+      </div>
+    );
+  }
+
   if (game === Game.RUST) {
     return (
       <div className={className}>

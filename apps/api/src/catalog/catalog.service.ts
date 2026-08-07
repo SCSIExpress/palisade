@@ -23,6 +23,7 @@ import { FACTORIO_CATALOG } from "./factorio.catalog";
 import { RUST_CATALOG } from "./rust.catalog";
 import { BEAMMP_CATALOG } from "./beammp.catalog";
 import { OPENTTD_CATALOG } from "./openttd.catalog";
+import { CS2_CATALOG } from "./cs2.catalog";
 import { serializeGameIni, serializeGameUserSettings } from "./ini-serializer";
 
 @Injectable()
@@ -52,6 +53,7 @@ export class CatalogService {
     if (game === Game.RUST) return RUST_CATALOG;
     if (game === Game.BEAMMP) return BEAMMP_CATALOG;
     if (game === Game.OPENTTD) return OPENTTD_CATALOG;
+    if (game === Game.CS2) return CS2_CATALOG;
     throw new NotFoundException(`Unknown game: ${game}`);
   }
 

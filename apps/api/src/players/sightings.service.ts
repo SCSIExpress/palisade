@@ -89,6 +89,7 @@ const ACTIONS_BY_GAME: Record<Game, PlayerAction[]> = {
   [Game.RUST]: ["kick", "ban", "admin"], // kickid / banid / moderatorid (steamid-based)
   [Game.BEAMMP]: [], // stdin console only; joins visible in logs
   [Game.OPENTTD]: [], // no programmatic admin (in-game console only)
+  [Game.CS2]: ["kick", "ban"], // Source RCON: kickid / banid
 };
 
 const CAPTURE_NOTES: Partial<Record<Game, string>> = {
@@ -205,8 +206,9 @@ export class SightingsService implements OnModuleInit {
         playerId: m[2],
       }));
     }
-    if (game === Game.RUST) {
-      // `status` → "76561198000000000 \"Name\" ..." player rows after a header.
+    if (game === Game.RUST || game === Game.CS2) {
+      // Source `status` → rows with a 17-digit steamid and a quoted name. CS2's
+      // format differs slightly from Rust's but both match steamid+"name".
       const out = await this.rcon.exec(serverId, "status");
       return [...out.matchAll(/^\s*(\d{17})\s+"([^"]+)"/gm)].map((m) => ({
         name: m[2]!,

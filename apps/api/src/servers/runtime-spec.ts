@@ -45,6 +45,7 @@ import {
   BEAMMP_CLIENT_MODS_DIR,
   BEAMMP_SERVER_MODS_DIR,
   OPENTTD_DATA_DIR,
+  CS2_DATA_DIR,
 } from "../common/images";
 // (ATS reuses the ich777 wrapper mount points LIF_STEAMCMD_DIR / LIF_SERVERFILES_DIR.)
 import { ZOMBOID_STEAM_PORTS } from "../catalog/ports";
@@ -200,6 +201,7 @@ function gameSpecFor(input: RuntimeSpecInput): Docker.ContainerCreateOptions {
   if (input.game === Game.RUST) return buildRustSpec(input);
   if (input.game === Game.BEAMMP) return buildBeammpSpec(input);
   if (input.game === Game.OPENTTD) return buildOpenttdSpec(input);
+  if (input.game === Game.CS2) return buildCs2Spec(input);
   return buildAseSpec(input);
 }
 
@@ -2254,6 +2256,81 @@ function buildAtsSpec(input: RuntimeSpecInput): Docker.ContainerCreateOptions {
  * serverfiles/.config/openttd. The whole instance dir binds to the image's DATA_DIR.
  * The game port carries both TCP (clients) and UDP (server-browser query).
  */
+/**
+ * Counter-Strike 2 (joedwards32/cs2): env-driven; the image installs/updates the
+ * game via SteamCMD on every start (so restart = update; no version pinning).
+ * Runs as the fixed unprivileged "steam" user (uid 1000). Game + A2S share
+ * 27015 (tcp+udp), CSTV rides the rawSocket slot (udp), and RCON gets its own
+ * TCP port via the image's CS2_RCON_PORT proxy — standard Source RCON, so the
+ * manager's console/kick/ban work like Rust's.
+ */
+function buildCs2Spec(input: RuntimeSpecInput): Docker.ContainerCreateOptions {
+  const env = loadEnv();
+  const { ports } = input;
+  const name = containerName(input.serverId, input.game, input.sessionName);
+
+  // The image's config templating treats "/" specially — it must arrive escaped
+  // (per the image README), or names like "My Server 1/3" break parsing.
+  const esc = (v: string) => v.replace(/\//g, "\\/");
+
+  const cs2Env = [
+    `TZ=${input.timezone || env.TZ}`,
+    `CS2_SERVERNAME=${esc(input.sessionName)}`,
+    `CS2_PORT=${ports.game}`,
+    `CS2_RCON_PORT=${ports.rcon}`, // TCP proxy inside the image → our console
+    `CS2_RCONPW=${input.adminPassword}`,
+    `CS2_PW=${serverPassword(input)}`,
+    `CS2_MAXPLAYERS=${input.maxPlayers}`,
+    `CS2_STARTMAP=${input.map}`,
+    `TV_PORT=${ports.rawSocket}`,
+    ...cs2CatalogEnv(input),
+  ];
+
+  const binds = [`${HostPaths.instanceRoot(input.serverId)}:${CS2_DATA_DIR}`];
+  const hostNet = env.GAME_HOST_NETWORK;
+  const portMap: [string, number][] = [
+    [portKey(ports.game, "tcp"), ports.game],
+    [portKey(ports.game, "udp"), ports.game],
+    [portKey(ports.rawSocket, "udp"), ports.rawSocket], // CSTV
+    [portKey(ports.rcon, "tcp"), ports.rcon],
+  ];
+  return {
+    name,
+    Image: IMAGES[input.game],
+    Hostname: name,
+    Env: cs2Env,
+    Labels: serverLabels(input, env.PUBLIC_BASE_URL),
+    ...(hostNet ? {} : { ExposedPorts: Object.fromEntries(portMap.map(([k]) => [k, {}])) }),
+    HostConfig: {
+      Binds: binds,
+      ...(hostNet
+        ? { NetworkMode: "host" }
+        : {
+            PortBindings: Object.fromEntries(portMap.map(([k, p]) => [k, [{ HostPort: String(p) }]])),
+          }),
+      RestartPolicy: { Name: "no" }, // manager watchdog owns restarts
+      Memory: input.ramLimitMb ? input.ramLimitMb * 1024 * 1024 : undefined,
+      NanoCpus: input.cpuLimit ? Math.round(input.cpuLimit * 1e9) : undefined,
+    },
+    ...(hostNet ? {} : { NetworkingConfig: { EndpointsConfig: { [ARK_NETWORK]: {} } } }),
+  };
+}
+
+/** CS2 settings -> env passthrough. Empty strings are dropped so unset options
+ *  (GSLT, workshop ids, alias) leave the image defaults; the image's flags are
+ *  numeric strings already (0/1 enums in the catalog). */
+function cs2CatalogEnv(input: RuntimeSpecInput): string[] {
+  const out: string[] = [];
+  for (const def of input.catalog.settings) {
+    if (def.target !== SettingTarget.Env) continue;
+    const raw = input.config.values?.[def.key] ?? def.default;
+    if (raw === undefined || raw === null || raw === "") continue;
+    const val = typeof raw === "boolean" ? (raw ? "1" : "0") : String(raw);
+    out.push(`${def.emitAs ?? def.key}=${val}`);
+  }
+  return out;
+}
+
 function buildOpenttdSpec(input: RuntimeSpecInput): Docker.ContainerCreateOptions {
   const env = loadEnv();
   const { ports } = input;
