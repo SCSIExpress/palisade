@@ -26,6 +26,7 @@ import { PresetsModule } from "./presets/presets.module";
 import { UpdatesModule } from "./updates/updates.module";
 import { ModUpdatesModule } from "./modupdates/modupdates.module";
 import { ImageTagsModule } from "./images/image-tags.module";
+import { FilesModule } from "./files/files.module";
 import { LogCaptureModule } from "./logs/log-capture.module";
 import { ReplicationModule } from "./replication/replication.module";
 import { AdoptionModule } from "./adoption/adoption.module";
@@ -64,6 +65,7 @@ import { HealthController } from "./health/health.controller";
     UpdatesModule,
     ModUpdatesModule,
     ImageTagsModule,
+    FilesModule,
     ReplicationModule,
     AdoptionModule,
     ArtworkModule,

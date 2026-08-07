@@ -22,6 +22,7 @@ import { ImageVersionCard } from "@/components/image-version-card";
 import { CrashBanner } from "@/components/crash-banner";
 import { PortForwardsCard } from "@/components/port-forwards-card";
 import { LogsTab } from "@/components/logs-tab";
+import { FilesTab } from "@/components/files-tab";
 import { ScheduleList } from "@/components/schedule-list";
 import { ModsTab } from "@/components/mods-tab";
 import { PalworldModsTab } from "@/components/palworld-mods-tab";
@@ -37,7 +38,7 @@ import { ArtworkPicker } from "@/components/artwork-picker";
 import { BackupsTab } from "@/components/backups-tab";
 import { PlayersTab } from "@/components/players-tab";
 
-const TABS = ["Overview", "Settings", "Mods", "Players", "Console", "Logs", "Schedules", "Backups"] as const;
+const TABS = ["Overview", "Settings", "Mods", "Players", "Console", "Logs", "Files", "Schedules", "Backups"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function ServerDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -189,6 +190,9 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
               : server.game === Game.SOTF || server.game === Game.SATISFACTORY || server.game === Game.LIF || server.game === Game.ATS || server.game === Game.ETS2 || server.game === Game.CORE_KEEPER || server.game === Game.TERRARIA || server.game === Game.BEAMMP || server.game === Game.OPENTTD
                 ? new Set<Tab>(["Console", "Mods"]) // no RCON/console, no mod browser
                 : new Set<Tab>();
+  // Files exposes raw configs (join/admin passwords, tokens) — operator+ only,
+  // matching the API's @MinRole guard.
+  if (role === "viewer") hiddenTabs.add("Files");
   const visibleTabs = TABS.filter((t) => !hiddenTabs.has(t));
 
   return (
