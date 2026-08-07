@@ -10,6 +10,7 @@ import {
   patchPalServerLauncher,
   renderSotfConfig,
   renderSdtdServerXml,
+  patchZomboidServerIni,
   renderOpenttdConfig,
   patchLifWorldXml,
   patchAtsServerConfig,
@@ -131,9 +132,15 @@ export class ServerConfigWriter {
         await writeFile(file, seed, "utf8");
       } else {
         const ini = await readFile(file, "utf8");
-        const patched = /^MaxPlayers=/m.test(ini)
+        let patched = /^MaxPlayers=/m.test(ini)
           ? ini.replace(/^MaxPlayers=.*$/m, `MaxPlayers=${server.maxPlayers}`)
           : `${ini}\nMaxPlayers=${server.maxPlayers}\n`;
+        // Catalog servertest.ini settings (GH #17): upsert only what the user set,
+        // preserving PZ's generated defaults + in-game admin edits for the rest.
+        patched = patchZomboidServerIni(patched, {
+          catalog: this.catalog.getCatalog(Game.ZOMBOID),
+          config: JSON.parse(server.configJson) as ServerConfigValues,
+        });
         if (patched !== ini) await writeFile(file, patched, "utf8");
       }
       // The image's fixed steam user must be able to rewrite the file on boot.

@@ -1313,12 +1313,42 @@ function zomboidCatalogEnv(input: RuntimeSpecInput): string[] {
   const out: string[] = [];
   for (const def of input.catalog.settings) {
     if (def.target !== SettingTarget.Env) continue;
+    // section:"servertest" settings live in servertest.ini (patchZomboidServerIni),
+    // not the container env — the danixu86 start script only reads its known vars.
+    if (def.section) continue;
     const raw = input.config.values?.[def.key] ?? def.default;
     if (raw === undefined || raw === null || raw === "") continue;
     const val = typeof raw === "boolean" ? (raw ? "true" : "false") : String(raw);
     out.push(`${def.emitAs ?? def.key}=${val}`);
   }
   return out;
+}
+
+/**
+ * Patch Project Zomboid's servertest.ini with the catalog settings the user has
+ * ACTUALLY SET (config.values), upserting `Key=Value` lines and leaving everything
+ * else — including PZ's own generated defaults and in-game admin edits — untouched.
+ * Only-user-set matters here: PZ merges its own defaults into the file on every
+ * boot, and writing OUR defaults for untouched keys would stomp in-game tweaks and
+ * risk drift when a game update changes a default (GH #17).
+ */
+export function patchZomboidServerIni(
+  ini: string,
+  input: { catalog: SettingsCatalog; config: ServerConfigValues },
+): string {
+  let doc = ini;
+  for (const def of input.catalog.settings) {
+    if (def.section !== "servertest") continue;
+    const raw = input.config.values?.[def.key];
+    if (raw === undefined || raw === null) continue; // untouched → leave PZ's value
+    const key = def.emitAs ?? def.key;
+    // INI values are read to end-of-line — a stray newline would corrupt the file.
+    const val = typeof raw === "boolean" ? (raw ? "true" : "false") : String(raw).replace(/[\r\n]/g, " ");
+    const line = `${key}=${val}`;
+    const re = new RegExp(`^${key}=.*$`, "m");
+    doc = re.test(doc) ? doc.replace(re, line) : `${doc.replace(/\n*$/, "\n")}${line}\n`;
+  }
+  return doc;
 }
 
 /**

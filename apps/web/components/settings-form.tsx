@@ -153,6 +153,17 @@ const BEDROCK_GROUPS: SettingGroup[] = [
 ];
 
 // Valheim's env-driven catalog + launch-flag world modifiers → its own tabs.
+// Project Zomboid: env settings + the full servertest.ini surface (GH #17).
+const ZOMBOID_GROUPS: SettingGroup[] = [
+  { id: "world", label: "World", Icon: MapIcon, cats: ["World"] },
+  { id: "server", label: "Server", Icon: SlidersHorizontal, cats: ["Server", "Network", "Performance"] },
+  { id: "pvp", label: "PvP", Icon: Swords, cats: ["PvP"] },
+  { id: "safehouse", label: "Safehouses", Icon: Shield, cats: ["Safehouse"] },
+  { id: "chat", label: "Chat & Voice", Icon: MessageSquare, cats: ["Chat & Voice", "Discord"] },
+  { id: "backups", label: "Backups", Icon: Package, cats: ["Game backups"] },
+  { id: "anticheat", label: "Anti-cheat", Icon: Skull, cats: ["Anti-cheat"] },
+];
+
 const VALHEIM_GROUPS: SettingGroup[] = [
   { id: "version", label: "Version", Icon: GitBranch, cats: ["Version"] },
   { id: "world", label: "World", Icon: MapIcon, cats: ["World"] },
@@ -236,7 +247,9 @@ export function SettingsForm({
                   ? SEVEN_DAYS_GROUPS
                   : game === Game.ENSHROUDED
                     ? ENSHROUDED_GROUPS
-                    : ARK_GROUPS;
+                    : game === Game.ZOMBOID
+                      ? ZOMBOID_GROUPS
+                      : ARK_GROUPS;
   const MAPPED_CATS = new Set(GROUPS.flatMap((g) => g.cats));
 
   // A map-specific category is shown only when the server's map matches it.
