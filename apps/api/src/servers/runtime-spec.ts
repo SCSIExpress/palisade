@@ -554,6 +554,11 @@ function buildPalworldSpec(input: RuntimeSpecInput): Docker.ContainerCreateOptio
     // the rcon client) and segfaults them. ServerConfigWriter patches the preload
     // into Steam's PalServer.sh launch line instead — see patchPalServerLauncher.
     ...palworldCatalogEnv(input),
+    // Auto-pause (GH #7) hard-requires these two in the image; enable them with it
+    // so the toggle just works (REST API stays unpublished — internal use only).
+    ...(input.config.values?.["AUTO_PAUSE_ENABLED"] === "true"
+      ? ["ENABLE_PLAYER_LOGGING=true", "REST_API_ENABLED=true"]
+      : []),
   ];
 
   // No VOLUME declarations in the image, so one bind covers the whole install +

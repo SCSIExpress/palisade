@@ -291,3 +291,43 @@ describe("native Palworld UPDATE_ON_BOOT (GH #8/#12/#16)", () => {
     expect(env).toContain("UPDATE_ON_BOOT=true");
   });
 });
+
+describe("Palworld community + auto-pause (GH #7)", () => {
+  const build = async (values: Record<string, unknown>) => {
+    const { buildContainerSpec } = await import("./runtime-spec");
+    const { PALWORLD_CATALOG } = await import("../catalog/palworld.catalog");
+    return buildContainerSpec({
+      serverId: "srv1",
+      game: Game.PALWORLD,
+      map: "Palpagos",
+      sessionName: "S",
+      ports: { game: 8211, rawSocket: 8212, query: 27015, rcon: 25575 },
+      maxPlayers: 8,
+      adminPassword: "secret",
+      serverPassword: "hunter2",
+      modIds: [],
+      cluster: null,
+      config: { values } as ServerConfigValues,
+      catalog: PALWORLD_CATALOG,
+    });
+  };
+  const envOf2 = (spec: { Env?: string[] }) => spec.Env ?? [];
+
+  it("COMMUNITY + CROSSPLAY_PLATFORMS emit lowercase/verbatim; defaults keep the server unlisted", async () => {
+    const def = envOf2(await build({}));
+    expect(def).toContain("COMMUNITY=false");
+    expect(def).toContain("CROSSPLAY_PLATFORMS=(Steam,Xbox,PS5,Mac)");
+    const on = envOf2(await build({ COMMUNITY: "true", CROSSPLAY_PLATFORMS: "(Steam)" }));
+    expect(on).toContain("COMMUNITY=true");
+    expect(on).toContain("CROSSPLAY_PLATFORMS=(Steam)");
+  });
+
+  it("enabling auto-pause also enables its image prerequisites", async () => {
+    const off = envOf2(await build({}));
+    expect(off.some((e) => e.startsWith("REST_API_ENABLED="))).toBe(false);
+    const on = envOf2(await build({ AUTO_PAUSE_ENABLED: "true" }));
+    expect(on).toContain("AUTO_PAUSE_ENABLED=true");
+    expect(on).toContain("ENABLE_PLAYER_LOGGING=true");
+    expect(on).toContain("REST_API_ENABLED=true");
+  });
+});

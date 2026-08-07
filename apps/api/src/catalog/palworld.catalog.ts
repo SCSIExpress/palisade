@@ -45,6 +45,31 @@ const settings: SettingDef[] = [
   pset("SERVER_DESCRIPTION", "Server description", "General", "string", "", {
     help: "Description shown next to the server in the browser.",
   }),
+  // Image-script envs (lowercase true/false, like UPDATE_ON_BOOT above — GH #7).
+  pset("COMMUNITY", "Community server listing", "General", "enum", "false", {
+    choices: [
+      { value: "false", label: "Unlisted (invite/IP only)" },
+      { value: "true", label: "Listed in the community browser" },
+    ],
+    help: "Launch with -publiclobby so the server appears in Palworld's community server browser. Palworld requires a join password for listed servers — set one in the Access card.",
+  }),
+  pset("CROSSPLAY_PLATFORMS", "Allowed platforms", "General", "string", "(Steam,Xbox,PS5,Mac)", {
+    help: "Which platforms may connect, in parentheses, e.g. (Steam,Xbox,PS5,Mac). Keep the parentheses.",
+  }),
+  pset("AUTO_PAUSE_ENABLED", "Pause when empty", "General", "enum", "false", {
+    choices: [
+      { value: "false", label: "Off" },
+      { value: "true", label: "Pause the server while nobody is online" },
+    ],
+    help: "Freeze the server process after the last player leaves (saves CPU; world time stops). Palisade auto-enables the player-logging + REST API prerequisites inside the container. Player counts may read 0/unavailable while paused.",
+  }),
+  pset("AUTO_PAUSE_TIMEOUT_EST", "Pause after empty for", "General", "int", 180, {
+    min: 10,
+    max: 3600,
+    unit: "s",
+    advanced: true,
+    help: "Seconds after the last disconnect before the process is paused.",
+  }),
   pset("DIFFICULTY", "Difficulty preset", "General", "enum", "None", {
     choices: [
       { value: "None", label: "Custom (use settings below)" },
