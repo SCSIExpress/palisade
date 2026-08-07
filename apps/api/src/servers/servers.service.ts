@@ -199,7 +199,7 @@ const STARTUP_DEADLINE_MS_BY_GAME: Partial<Record<Game, number>> = {
   [Game.ASA]: 45 * 60_000, // ~13 GB depot on first boot
   [Game.ASE]: 45 * 60_000,
   [Game.SEVEN_DAYS]: 45 * 60_000, // ~17 GB via LinuxGSM
-  [Game.CS2]: 60 * 60_000, // ~35 GB depot on first boot — the biggest download in the panel
+  [Game.CS2]: 120 * 60_000, // ~70 GB depot on first boot — by far the biggest download in the panel
 };
 const startupDeadlineMs = (game: Game): number =>
   STARTUP_DEADLINE_MS_BY_GAME[game] ?? STARTUP_DEADLINE_MS_DEFAULT;
@@ -1131,6 +1131,16 @@ export class ServersService implements OnApplicationBootstrap {
         const root = LocalPaths.instanceRoot(id);
         await mkdir(root, { recursive: true });
         await chown(root, Number(env.PUID), Number(env.PGID)).catch(() => undefined);
+      }
+
+      // CS2's joedwards32 image runs as its fixed "steam" user (1000) and SteamCMD
+      // must write the ~70 GB depot into the bind — but Docker creates a missing
+      // bind dir root-owned, so steamcmd silently falls back to the CONTAINER LAYER
+      // (bloating docker.img until it bursts). Pre-own the root for uid 1000.
+      if (game === Game.CS2) {
+        const root = LocalPaths.instanceRoot(id);
+        await mkdir(root, { recursive: true });
+        await chown(root, SERVER_UID[game], SERVER_GID[game]).catch(() => undefined);
       }
 
       // Same failure mode for Zomboid: the danixu86 image runs as its fixed "steam"
