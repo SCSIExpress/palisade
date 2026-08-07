@@ -84,6 +84,13 @@ player administration, and even your router's port-forwards.
   saves import. The manager also snapshots its own database nightly.
 - Schedules (restart / update / backup / stop / start) with in-game countdown
   warnings, pre-action snapshots, and a "skip while players are online" guard.
+- **Version pinning** from registry-populated dropdowns: pin the **game version /
+  Steam branch** where the server image supports it (Minecraft, OpenTTD, 7DTD,
+  Enshrouded, Valheim, Palworld, V Rising, Satisfactory, ATS/ETS2, LiF:YO), and —
+  for advanced rollbacks — pin the **Docker image tag** on any game, with a
+  per-game note explaining exactly what each pin does and doesn't control.
+- A crashed server shows **why** it died (exit code / OOM + a log tail) right on
+  its Overview, instead of a bare "Crashed" badge.
 - ARK cluster support (shared transfer dir across servers).
 - Discord/webhook notifications, host low-disk warnings, editable ports with a
   start-time port-conflict guard.
