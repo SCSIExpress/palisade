@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, readdir, readFile, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { extractZipSafe, __test } from "./safe-extract";
+import { extractZipSafe, extractTarGzSafe, __test } from "./safe-extract";
 
 const { isUnsafeEntry } = __test;
 
@@ -60,5 +60,41 @@ describe("extractZipSafe (real unzip)", () => {
     const entries = await readdir(dir, { withFileTypes: true });
     expect(entries.some((e) => e.isSymbolicLink()), "symlink was stripped").toBe(false);
     expect(entries.some((e) => e.name === "real.txt")).toBe(true); // real files untouched
+  });
+});
+
+describe("extractTarGzSafe (real tar)", () => {
+  let dir: string;
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), "safe-extract-tar-"));
+  });
+  afterEach(async () => {
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  it("rejects a corrupt/junk archive with a 400, not an unhandled error", async () => {
+    // What GH #10's reporter would upload by accident: bytes that aren't a tar.gz.
+    const junk = join(dir, "junk.tar.gz");
+    const bytes = Buffer.alloc(1024, 7);
+    bytes[0] = 0x1f; bytes[1] = 0x8b; // gzip magic, but garbage after — like a truncated upload
+    await writeFile(junk, bytes);
+    const { BadRequestException } = await import("@nestjs/common");
+    const err = await extractTarGzSafe(junk, dir).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(BadRequestException);
+    expect(String((err as Error).message)).toMatch(/not a valid \.tar\.gz/i);
+  });
+
+  it("still extracts a genuine tar.gz", async () => {
+    const src = join(dir, "src");
+    const { mkdir } = await import("node:fs/promises");
+    await mkdir(src, { recursive: true });
+    await writeFile(join(src, "hello.txt"), "world");
+    const { execFile } = await import("node:child_process");
+    const { promisify } = await import("node:util");
+    await promisify(execFile)("tar", ["czf", join(dir, "ok.tar.gz"), "-C", src, "hello.txt"]);
+    const out = join(dir, "out");
+    await mkdir(out, { recursive: true });
+    await extractTarGzSafe(join(dir, "ok.tar.gz"), out);
+    expect(await readFile(join(out, "hello.txt"), "utf8")).toBe("world");
   });
 });

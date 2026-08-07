@@ -59,12 +59,20 @@ export async function extractZipSafe(data: Buffer, dest: string): Promise<void> 
  *  and drops archive-supplied ownership. (Symlinks are NOT stripped here — legitimate
  *  game saves may contain them, and GNU tar already refuses `..`/write-through-symlink.) */
 export async function extractTarGzSafe(archivePath: string, dest: string): Promise<void> {
-  const { stdout } = await execFileP("tar", ["tzf", archivePath]);
-  const bad = stdout.split("\n").find(isUnsafeEntry);
-  if (bad !== undefined) {
-    throw new BadRequestException(`Archive rejected — unsafe path in entry "${bad.trim()}".`);
+  try {
+    const { stdout } = await execFileP("tar", ["tzf", archivePath]);
+    const bad = stdout.split("\n").find(isUnsafeEntry);
+    if (bad !== undefined) {
+      throw new BadRequestException(`Archive rejected — unsafe path in entry "${bad.trim()}".`);
+    }
+    await execFileP("tar", ["xzf", archivePath, "-C", dest, "--no-same-owner"]);
+  } catch (e) {
+    if (e instanceof BadRequestException) throw e;
+    // Corrupt/junk upload → the caller's 400, not an unhandled 500 (GH #10 polish).
+    // execFile errors bury tar's own diagnostic in stderr — surface its first line.
+    const stderr = (e as { stderr?: string }).stderr?.trim().split("\n")[0];
+    throw new BadRequestException(`Not a valid .tar.gz archive: ${stderr || (e as Error).message}`);
   }
-  await execFileP("tar", ["xzf", archivePath, "-C", dest, "--no-same-owner"]);
 }
 
 // Exposed for unit tests (validate the name-vetting without spawning a shell).
