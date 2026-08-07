@@ -1,5 +1,5 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import * as cron from "node-cron";
 import { Game, EventType, STEAM_APP_ID } from "@ark/shared";
@@ -19,6 +19,47 @@ export function parseAcfBuildId(acf: string): number | null {
   if (!m) return null;
   const n = Number(m[1]);
   return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/**
+ * Find `appmanifest_<appid>.acf` under a root dir. SteamCMD always writes the
+ * manifest to `<install_dir>/steamapps/`, but every image nests the install in a
+ * different subdirectory of the bind (observed live: `.`, `server/`, `serverfiles/`,
+ * `game/`, `gamefiles/server/` — GH #16), so instead of a per-image table this does a
+ * BOUNDED guided search: at each directory down to `maxDepth`, try `<dir>/<file>` and
+ * `<dir>/steamapps/<file>`. Only readdir/readFile probes — the game tree itself is
+ * never walked, so a 30 GB install costs the same as an empty one.
+ */
+export async function findManifest(root: string, file: string, maxDepth = 2): Promise<string | null> {
+  let level: string[] = [root];
+  for (let depth = 0; depth <= maxDepth && level.length; depth++) {
+    for (const dir of level) {
+      for (const candidate of [join(dir, file), join(dir, "steamapps", file)]) {
+        try {
+          await readFile(candidate, "utf8");
+          return candidate;
+        } catch {
+          /* not here */
+        }
+      }
+    }
+    if (depth === maxDepth) break;
+    const next: string[] = [];
+    for (const dir of level) {
+      try {
+        const entries = await readdir(dir, { withFileTypes: true });
+        for (const e of entries) {
+          // steamapps is probed explicitly above; don't descend into it (its
+          // subtree holds depot content, never another manifest root).
+          if (e.isDirectory() && e.name !== "steamapps") next.push(join(dir, e.name));
+        }
+      } catch {
+        /* unreadable/absent dir → nothing beneath it */
+      }
+    }
+    level = next;
+  }
+  return null;
 }
 
 /** Public-branch build id from the steamcmd.net info JSON, or null. */
@@ -126,14 +167,19 @@ export class UpdatesService implements OnModuleInit {
   private async installedBuildId(serverId: string, game: Game): Promise<number | null> {
     const file = `appmanifest_${STEAM_APP_ID[game]}.acf`;
     // A started server has its own copy; fall back to the shared golden cache.
-    for (const dir of [LocalPaths.instanceRoot(serverId), LocalPaths.gameCache(game)]) {
+    // The manifest's location within the bind varies per image (GH #16), so each
+    // root is searched, not probed at a single fixed path.
+    for (const root of [LocalPaths.instanceRoot(serverId), LocalPaths.gameCache(game)]) {
+      const path = await findManifest(root, file);
+      if (!path) continue;
       try {
-        const buildid = parseAcfBuildId(await readFile(join(dir, file), "utf8"));
+        const buildid = parseAcfBuildId(await readFile(path, "utf8"));
         if (buildid !== null) return buildid;
       } catch {
-        /* file absent here → try the next location */
+        /* vanished between find and read → try the next root */
       }
     }
+    this.logger.debug(`installedBuildId(${game}): no ${file} under instance or cache`);
     return null;
   }
 }

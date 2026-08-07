@@ -260,3 +260,34 @@ describe("Minecraft VERSION dropdown flag", () => {
     expect(version?.default).toBe("LATEST"); // default stays LATEST
   });
 });
+
+describe("native Palworld UPDATE_ON_BOOT (GH #8/#12/#16)", () => {
+  const build = async (values: Record<string, unknown>) => {
+    const { buildContainerSpec } = await import("./runtime-spec");
+    const { PALWORLD_CATALOG } = await import("../catalog/palworld.catalog");
+    return buildContainerSpec({
+      serverId: "srv1",
+      game: Game.PALWORLD,
+      map: "",
+      sessionName: "Pal",
+      ports: { game: 8211, rawSocket: 0, query: 27015, rcon: 25575 },
+      maxPlayers: 16,
+      adminPassword: "secret",
+      serverPassword: "hunter2",
+      modIds: [],
+      cluster: null,
+      config: { values } as ServerConfigValues,
+      catalog: PALWORLD_CATALOG,
+    });
+  };
+
+  it("defaults to false via the catalog, emitted exactly once (no leftover pin)", async () => {
+    const env = envOf(await build({}));
+    expect(env.filter((e) => e.startsWith("UPDATE_ON_BOOT="))).toEqual(["UPDATE_ON_BOOT=false"]);
+  });
+
+  it("emits a configured true lowercased (image-script env, not a True/False INI bool)", async () => {
+    const env = envOf(await build({ UPDATE_ON_BOOT: "true" }));
+    expect(env).toContain("UPDATE_ON_BOOT=true");
+  });
+});

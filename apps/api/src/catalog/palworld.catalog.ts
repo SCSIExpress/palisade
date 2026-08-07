@@ -31,6 +31,16 @@ const settings: SettingDef[] = [
     ],
     help: "Install the Palworld beta (insider) build instead of the stable release. Changing it re-downloads the game on the next start.",
   }),
+  // Image-script env (lowercase true/false), like ALWAYS_UPDATE_ON_START on the Wine
+  // variant (GH #15/#16): without it a native Palworld server never updates its game
+  // files — SteamCMD only runs on first install (GH #8/#12).
+  pset("UPDATE_ON_BOOT", "Game updates", "Version", "enum", "false", {
+    choices: [
+      { value: "false", label: "Pinned (no updates on restart)" },
+      { value: "true", label: "Update to latest on every restart" },
+    ],
+    help: "Run SteamCMD on each start to update the game to the latest build. Off keeps the server on its installed build (the update badge still tells you when one is available — turn this on and restart to apply it).",
+  }),
   // ── General ────────────────────────────────────────────────────────────────
   pset("SERVER_DESCRIPTION", "Server description", "General", "string", "", {
     help: "Description shown next to the server in the browser.",

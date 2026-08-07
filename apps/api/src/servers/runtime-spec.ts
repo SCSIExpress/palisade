@@ -508,9 +508,12 @@ function buildPalworldSpec(input: RuntimeSpecInput): Docker.ContainerCreateOptio
     `QUERY_PORT=${ports.query}`,
     `PLAYERS=${input.maxPlayers}`,
     `MULTITHREADING=true`,
-    // The manager owns updates/backups/restarts — turn off the image's own loops.
-    // (A fresh instance still installs on first boot regardless of UPDATE_ON_BOOT.)
-    `UPDATE_ON_BOOT=false`,
+    // The manager owns backups/restarts — silence the image's own loops.
+    // UPDATE_ON_BOOT is NOT pinned here: it comes from the catalog (default false),
+    // because SteamCMD-on-start is the only way a native Palworld server's game
+    // files can update after the first install (GH #8/#12/#16 — mirrors the Wine
+    // variant's ALWAYS_UPDATE_ON_START from #15). A fresh instance still installs
+    // on first boot regardless.
     `BACKUP_ENABLED=false`,
     `AUTO_REBOOT_ENABLED=false`,
     // NOTE: the UE4SS mod framework is NOT preloaded via a container-wide LD_PRELOAD.
