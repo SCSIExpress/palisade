@@ -83,6 +83,34 @@ export interface RuntimeSpecInput {
   /** Advanced: pin the game image to a specific tag (e.g. a prior version) instead of
    *  the shipped default. Invalid/blank falls back to the default tag. */
   imageTag?: string | null;
+  /** One-shot: this start should update the game files. For games whose image updater
+   *  the manager normally disables, forces the image's update env for this boot only
+   *  (see ONE_SHOT_UPDATE_ENV). No-op for games that already update on boot. */
+  updateRequested?: boolean;
+}
+
+/**
+ * The env that makes each "stranded" game's image update its game files on boot —
+ * the games where the manager normally disables the image updater and (before
+ * GH #8/#12/#14) offered no update path of its own. Applied for a single start when
+ * `updateRequested` is set, overriding any catalog/default value of the same key.
+ * Conan's AUTO_UPDATE also enables an in-session periodic monitor that could restart
+ * the server out from under the manager — the huge check interval quiets it.
+ */
+export const ONE_SHOT_UPDATE_ENV: Partial<Record<Game, Record<string, string>>> = {
+  [Game.PALWORLD]: { UPDATE_ON_BOOT: "true" },
+  [Game.PALWORLD_WINE]: { ALWAYS_UPDATE_ON_START: "true" },
+  [Game.CONAN]: { AUTO_UPDATE: "true", AUTO_UPDATE_CHECK_INTERVAL_HOURS: "8760" },
+};
+
+/** Replace/append `KEY=value` entries in a Docker env array. Docker keeps the LAST
+ *  duplicate, but relying on that is fragile — strip the old entries instead. */
+export function forceEnv(env: string[], overrides: Record<string, string>): string[] {
+  const keys = new Set(Object.keys(overrides));
+  return [
+    ...env.filter((e) => !keys.has(e.slice(0, e.indexOf("=")))),
+    ...Object.entries(overrides).map(([k, v]) => `${k}=${v}`),
+  ];
 }
 
 /** Build the Docker create spec for a game-server container. */
@@ -91,6 +119,11 @@ export function buildContainerSpec(input: RuntimeSpecInput): Docker.ContainerCre
   // Each game spec sets Image to its shipped default; apply a pinned tag here (one
   // choke point) so an advanced user can run a specific version.
   spec.Image = imageRefFor(input.game, input.imageTag);
+  // One-shot update: force the image's update env for this boot (GH #8/#12/#14).
+  const updateEnv = ONE_SHOT_UPDATE_ENV[input.game];
+  if (input.updateRequested && updateEnv) {
+    spec.Env = forceEnv(spec.Env ?? [], updateEnv);
+  }
   return spec;
 }
 

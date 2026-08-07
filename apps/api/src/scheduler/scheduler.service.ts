@@ -202,7 +202,10 @@ export class SchedulerService implements OnModuleInit {
             server.state as ServerState,
           );
           await this.servers.stop(sched.serverId).catch(() => undefined);
-          await this.installer.install(server.game as Game, { serverId: sched.serverId });
+          // Through installGame (not installer.install directly) so games whose image
+          // updater is normally disabled get their one-shot update flagged too
+          // (GH #8/#12/#14) — the start below then actually updates the game files.
+          await this.servers.installGame(sched.serverId);
           if (wasUp) await this.servers.start(sched.serverId);
           break;
         }

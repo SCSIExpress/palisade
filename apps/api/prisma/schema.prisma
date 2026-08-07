@@ -78,6 +78,10 @@ model Server {
   // Last crash's container exit reason (exit code + a log tail), captured when a
   // running/starting container exits unexpectedly. Null once it starts cleanly.
   crashReason      String?
+  // One-shot: the next start should update the game files. Set by Install/Update
+  // for games whose image updater the manager normally disables (Palworld both
+  // variants, Conan — GH #8/#12/#14); cleared once a start applies it.
+  updateRequested  Boolean @default(false)
   updateAvailable  Boolean @default(false)
   // True when an installed mod (Valheim/Thunderstore or a pinned Minecraft modpack)
   // has a newer version — set by the mod-update poller (ModUpdatesService).

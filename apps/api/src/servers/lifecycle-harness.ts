@@ -46,6 +46,7 @@ export interface ServerRow {
   updateAvailable: boolean;
   configDirty: boolean;
   crashReason?: string | null;
+  updateRequested?: boolean;
 }
 
 export function makeRow(over: Partial<ServerRow> = {}): ServerRow {

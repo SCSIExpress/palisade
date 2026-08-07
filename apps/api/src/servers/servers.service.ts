@@ -47,7 +47,7 @@ import { ManagerSettingsService, SettingKeys } from "../manager-settings/manager
 import { LogCaptureService, LOG_CAPTURE_MAX } from "../logs/log-capture.service";
 import { BackupsService } from "../backups/backups.service";
 import { PlayersService } from "../players/players.service";
-import { buildContainerSpec } from "./runtime-spec";
+import { buildContainerSpec, ONE_SHOT_UPDATE_ENV } from "./runtime-spec";
 import { portsFor, serverPortSet } from "../catalog/ports";
 import { LocalPaths } from "../common/paths";
 import { containerName } from "../common/naming";
@@ -826,6 +826,17 @@ export class ServersService implements OnApplicationBootstrap {
     const server = await this.prisma.server.findUnique({ where: { id } });
     if (!server) throw new NotFoundException("Server not found");
     const jobId = await this.installer.install(server.game as Game, { serverId: id });
+    // Games whose image updater the manager disables (Palworld both variants, Conan)
+    // get no game-file update from an image pull or a plain restart — flag a one-shot
+    // update so the NEXT start runs the image's SteamCMD update (GH #8/#12/#14).
+    if (ONE_SHOT_UPDATE_ENV[server.game as Game]) {
+      await this.prisma.server.update({ where: { id }, data: { updateRequested: true } });
+      await this.events.emit({
+        type: EventType.InstallFinished,
+        message: `"${server.name}": game files will update on the next start (restart to apply)`,
+        serverId: id,
+      });
+    }
     return { jobId };
   }
 
@@ -1067,6 +1078,7 @@ export class ServersService implements OnApplicationBootstrap {
       pzModNames,
       iconUrl,
       imageTag: server.imageTag,
+      updateRequested: server.updateRequested,
     });
   }
 
@@ -1152,7 +1164,12 @@ export class ServersService implements OnApplicationBootstrap {
       }
       const containerId = await this.docker.createContainer(spec);
       // Container now reflects the current config → clear the restart-needed flag.
-      await this.prisma.server.update({ where: { id }, data: { containerId, configDirty: false } });
+      // A pending one-shot update was baked into this spec's env — consume it so the
+      // NEXT start goes back to the no-update default (GH #8/#12/#14).
+      await this.prisma.server.update({
+        where: { id },
+        data: { containerId, configDirty: false, ...(server.updateRequested ? { updateRequested: false } : {}) },
+      });
       await this.docker.start(containerId);
 
       await this.attachMonitors(id, containerId);
