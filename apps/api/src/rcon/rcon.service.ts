@@ -137,6 +137,7 @@ export class RconService {
     if (game === Game.VRISING) return this.exec(serverId, `announce ${message}`);
     if (game === Game.FACTORIO) return this.exec(serverId, message); // bare text = chat
     if (game === Game.RUST) return this.exec(serverId, `say ${message}`);
+    if (game === Game.CS2) return this.exec(serverId, `say ${message}`);
     return this.exec(serverId, `ServerChat ${message}`);
   }
 
@@ -151,6 +152,7 @@ export class RconService {
     if (game === Game.ZOMBOID) return this.exec(serverId, "save");
     if (game === Game.FACTORIO) return this.exec(serverId, "/server-save");
     if (game === Game.RUST) return this.exec(serverId, "server.save");
+    if (game === Game.CS2) return "CS2 rounds are stateless — nothing to save.";
     if (game === Game.VRISING)
       return "V Rising autosaves on an interval and flushes on shutdown — no manual save command.";
     return this.exec(serverId, "SaveWorld");
@@ -226,6 +228,7 @@ export class RconService {
     if (game === Game.ZOMBOID) return this.exec(serverId, `kickuser "${playerId}"`);
     if (game === Game.FACTORIO) return this.exec(serverId, `/kick ${playerId}`);
     if (game === Game.RUST) return this.exec(serverId, `kickid ${playerId}`);
+    if (game === Game.CS2) return this.exec(serverId, `kickid ${playerId}`);
     if (game === Game.MINECRAFT) return this.exec(serverId, `kick ${playerId}`);
     return this.exec(serverId, `KickPlayer ${playerId}`);
   }
@@ -238,6 +241,7 @@ export class RconService {
     if (game === Game.ZOMBOID) return this.exec(serverId, `banuser "${playerId}"`);
     if (game === Game.FACTORIO) return this.exec(serverId, `/ban ${playerId}`);
     if (game === Game.RUST) return this.exec(serverId, `banid ${playerId}`);
+    if (game === Game.CS2) return this.exec(serverId, `banid 0 ${playerId}`); // 0 = permanent
     if (game === Game.MINECRAFT) return this.exec(serverId, `ban ${playerId}`);
     return this.exec(serverId, `BanPlayer ${playerId}`);
   }

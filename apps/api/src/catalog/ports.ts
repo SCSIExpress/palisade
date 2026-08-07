@@ -166,6 +166,10 @@ export const BEAMMP_PORTS: PortSet = { game: 30814, rawSocket: 30815, query: 308
 // OpenTTD: game 3979 (TCP+UDP; the UDP side also answers server-browser queries). The
 // admin protocol port (3977) stays LAN-only; no Source RCON.
 export const OPENTTD_PORTS: PortSet = { game: 3979, rawSocket: 3980, query: 3979, rcon: 0 };
+// CS2: game 27015 on BOTH TCP and UDP (A2S queries ride the same UDP port).
+// SourceTV/CSTV on 27020/udp (rawSocket slot). RCON on a separate TCP port via the
+// image's CS2_RCON_PORT proxy so the manager's console doesn't share the game port.
+export const CS2_PORTS: PortSet = { game: 27015, rawSocket: 27020, query: 27015, rcon: 27025 };
 // Wine Palworld: shifted off native Palworld's default block so both can be installed.
 export const PALWORLD_WINE_PORTS: PortSet = { game: 8311, rawSocket: 8312, query: 8313, rcon: 8314 };
 
@@ -287,6 +291,12 @@ export function forwardSpec(game: Game, ports: PortSet): ForwardPort[] {
         { port: ports.game, proto: "tcp", label: "game (tcp)" },
         { port: ports.game, proto: "udp", label: "game (udp)" },
       ];
+    case Game.CS2:
+      return [
+        { port: ports.game, proto: "tcp", label: "game (tcp)" },
+        { port: ports.game, proto: "udp", label: "game + query (udp)" },
+        { port: ports.rawSocket, proto: "udp", label: "CSTV spectator" },
+      ];
     default:
       // ARK family + Conan: game + raw socket + query, all UDP.
       return [
@@ -319,5 +329,6 @@ export function portsFor(game: Game): PortSet {
   if (game === Game.BEAMMP) return BEAMMP_PORTS;
   if (game === Game.PALWORLD_WINE) return PALWORLD_WINE_PORTS;
   if (game === Game.OPENTTD) return OPENTTD_PORTS;
+  if (game === Game.CS2) return CS2_PORTS;
   return FIXED_PORTS;
 }

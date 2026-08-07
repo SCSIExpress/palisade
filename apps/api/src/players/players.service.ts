@@ -29,6 +29,7 @@ const A2S_GAMES = new Set<Game>([
   Game.ATS,
   Game.ETS2,
   Game.RUST,
+  Game.CS2, // standard A2S on the game/query UDP port
 ]);
 
 /**

@@ -170,6 +170,9 @@ export const READY_RE_BY_GAME: Record<Game, RegExp> = {
   // confirm against a real boot.
   [Game.BEAMMP]: /ALL SYSTEMS STARTED SUCCESSFULLY|Vehicle data network online/i,
   [Game.OPENTTD]: /Starting dedicated server/i,
+  // cs2 logs 'Host activate: Loading (de_dust2)' when the map spins up; Steam
+  // logon lines appear slightly later depending on token/anonymous mode.
+  [Game.CS2]: /Host activate: Loading|Connection to Steam servers successful/i,
 };
 
 /** The "server is now joinable" log-marker regex for a game. */

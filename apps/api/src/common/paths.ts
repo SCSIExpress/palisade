@@ -114,6 +114,10 @@ export const LocalPaths = {
       case Game.OPENTTD:
         // OpenTTD regenerates its config each start; only the saved games matter.
         return ["serverfiles/.local/share/openttd/save"];
+      case Game.CS2:
+        // Configs (autoexec/server cfgs) + recorded CSTV demos; the ~60 GB game
+        // install is skipped (SteamCMD restores it on start).
+        return ["game/csgo/cfg", "game/csgo/addons"];
       default:
         return ["ShooterGame/Saved"]; // ASA (POK)
     }

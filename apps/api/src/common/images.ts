@@ -92,6 +92,9 @@ export const IMAGES: Record<Game, string> = {
   // clients. NO RCON/query; console is stdin-only.
   [Game.BEAMMP]: "rouhim/beammp-server:latest",
   [Game.OPENTTD]: "ich777/openttdserver:latest",
+  // joedwards32/cs2 — the de-facto CS2 server image. Env-driven (CS2_*), runs
+  // SteamCMD install/update on every start, unprivileged uid 1000 ("steam").
+  [Game.CS2]: "joedwards32/cs2:latest",
 };
 
 /** POK keeps all instance data (install + saves + config) under this path. */
@@ -220,6 +223,8 @@ export const BEAMMP_SERVER_MODS_DIR = "/beammp/Resources/Server";
 // OpenTTD (ich777): DATA_DIR is /serverdata; SERVER_DIR is /serverdata/serverfiles, with
 // config at serverfiles/.config/openttd and saves at serverfiles/.local/share/openttd.
 export const OPENTTD_DATA_DIR = "/serverdata";
+/** joedwards32/cs2 keeps the whole install + configs under this volume. */
+export const CS2_DATA_DIR = "/home/steam/cs2-dedicated";
 
 /**
  * The uid/gid each image runs the server as. Neither chowns its mounts fully
@@ -251,6 +256,7 @@ export const SERVER_UID: Record<Game, number> = {
   [Game.RUST]: 0, // didstopia runs as root
   [Game.BEAMMP]: 0, // rouhim runs as root (mod dirs world-writable per its docs)
   [Game.OPENTTD]: 99, // ich777 wrapper (UID/GID env = PUID/PGID)
+  [Game.CS2]: 1000, // the image's fixed unprivileged "steam" user
 };
 export const SERVER_GID: Record<Game, number> = {
   [Game.ASA]: 7777,
@@ -277,4 +283,5 @@ export const SERVER_GID: Record<Game, number> = {
   [Game.RUST]: 0,
   [Game.BEAMMP]: 0,
   [Game.OPENTTD]: 100,
+  [Game.CS2]: 1000,
 };

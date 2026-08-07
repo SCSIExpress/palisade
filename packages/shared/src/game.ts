@@ -47,6 +47,7 @@ export enum Game {
   BEAMMP = "BEAMMP",
   /** OpenTTD — ich777 image (downloads OpenTTD itself); we render openttd.cfg/private.cfg/secrets.cfg; NO Source RCON (in-game console). */
   OPENTTD = "OPENTTD",
+  CS2 = "CS2",
 }
 
 /** Friendly game names for the UI. */
@@ -75,6 +76,7 @@ export const GAME_LABELS: Record<Game, string> = {
   [Game.RUST]: "Rust",
   [Game.BEAMMP]: "BeamNG.drive (BeamMP)",
   [Game.OPENTTD]: "OpenTTD",
+  [Game.CS2]: "Counter-Strike 2",
 };
 
 /** SteamCMD app IDs for the dedicated server (anonymous login). */
@@ -123,6 +125,7 @@ export const STEAM_APP_ID: Record<Game, number> = {
   // BeamMP isn't on Steam — the rouhim image bundles the BeamMP server. Unused.
   [Game.BEAMMP]: 0,
   [Game.OPENTTD]: 0, // OpenTTD isn't Steam-installed (downloaded from openttd.org)
+  [Game.CS2]: 730, // the CS2 dedicated server installs via the game's own app id (anonymous)
 };
 
 /**
@@ -157,6 +160,7 @@ export const STORE_APP_ID: Record<Game, number> = {
   [Game.RUST]: 252490,
   [Game.BEAMMP]: 284160,
   [Game.OPENTTD]: 1536610, // Steam store page (for SteamGridDB artwork)
+  [Game.CS2]: 730,
 };
 
 /** Steam Workshop "consumer" app ids for mod downloads (ARK: Survival Evolved /
@@ -208,6 +212,7 @@ export const GAME_ICONS: Record<Game, string> = {
   [Game.RUST]: "https://cdn.cloudflare.steamstatic.com/steam/apps/252490/header.jpg",
   [Game.BEAMMP]: "https://cdn.cloudflare.steamstatic.com/steam/apps/284160/header.jpg",
   [Game.OPENTTD]: "https://cdn.cloudflare.steamstatic.com/steam/apps/1536610/header.jpg",
+  [Game.CS2]: "https://cdn.cloudflare.steamstatic.com/steam/apps/730/header.jpg",
 };
 
 /** CurseForge numeric game id for ASA (used by the mod browser). */
@@ -277,6 +282,7 @@ export const RAM_ESTIMATE_MB: Record<Game, number> = {
   // The BeamMP server is a featherweight relay (physics run on clients) — well under 1 GB.
   [Game.BEAMMP]: 1000,
   [Game.OPENTTD]: 1000, // OpenTTD is tiny (a few hundred MB even on a big map)
+  [Game.CS2]: 4000, // the CS2 server sits around 2-4 GB in play
 };
 
 /**
@@ -312,6 +318,7 @@ export const DISK_INSTALL_MB: Record<Game, number> = {
   [Game.RUST]: 25000, // Rust's server files are ~20-25 GB
   [Game.BEAMMP]: 3000,
   [Game.OPENTTD]: 1000, // ~25 MB download + saves
+  [Game.CS2]: 62000, // Valve says 60 GB for the CS2 dedicated server
 };
 
 /**
@@ -345,6 +352,7 @@ export const MAX_PLAYERS_BY_GAME: Record<Game, number> = {
   [Game.RUST]: 200, // no hard cap; a sane ceiling for self-hosting
   [Game.BEAMMP]: 64, // no hard cap; practical ceiling (physics load is client-side)
   [Game.OPENTTD]: 255, // OpenTTD max_clients hard cap
+  [Game.CS2]: 64, // engine ceiling; community servers usually run 10-32
 };
 
 /** The default player count the create form pre-fills per game (a sensible starting
@@ -374,6 +382,7 @@ export const DEFAULT_MAX_PLAYERS_BY_GAME: Record<Game, number> = {
   [Game.RUST]: 50,
   [Game.BEAMMP]: 10,
   [Game.OPENTTD]: 25, // OpenTTD default max_clients
+  [Game.CS2]: 10, // the image's CS2_MAXPLAYERS default
 };
 
 /** A password field on the create form: whether to show it at all, its label, an
@@ -450,6 +459,7 @@ export const ADMIN_PASSWORD_META: Record<Game, PasswordFieldMeta> = {
     label: "Admin console password (rcon)",
     help: "Sets rcon_password — lets an admin run server commands from the in-game multiplayer console.",
   },
+  [Game.CS2]: { show: true, label: "RCON password (enables the console)" },
 };
 
 /** The join (server) password field, per game. Every game can have one, but Valheim
@@ -503,6 +513,7 @@ export const JOIN_PASSWORD_META: Record<Game, PasswordFieldMeta> = {
   // The rouhim image doesn't expose BeamMP's join password; keep the server Private instead.
   [Game.BEAMMP]: { show: false, label: "" },
   [Game.OPENTTD]: { show: true, label: "Server password (players need it to join)" },
+  [Game.CS2]: { show: true, label: "Server password (players need it to join)" },
 };
 
 /** Default port offsets within a per-server allocation block. */
@@ -648,6 +659,21 @@ export const BEAMMP_OFFICIAL_MAPS = [
  *  LANDSCAPE (climate), written to openttd.cfg [game_creation] landscape. */
 export const OPENTTD_OFFICIAL_MAPS = ["temperate", "arctic", "tropic", "toyland"] as const;
 
+/** CS2 start maps: the Active Duty pool + classic hostage maps (CS2_STARTMAP). */
+export const CS2_OFFICIAL_MAPS = [
+  "de_dust2",
+  "de_mirage",
+  "de_inferno",
+  "de_nuke",
+  "de_ancient",
+  "de_anubis",
+  "de_train",
+  "de_overpass",
+  "de_vertigo",
+  "cs_office",
+  "cs_italy",
+] as const;
+
 /** Friendly display names for known level names (raw level → label). */
 export const MAP_LABELS: Record<string, string> = {
   // Conan Exiles
@@ -789,4 +815,5 @@ export const MAPS_BY_GAME: Record<Game, readonly string[]> = {
   [Game.RUST]: RUST_OFFICIAL_MAPS,
   [Game.BEAMMP]: BEAMMP_OFFICIAL_MAPS,
   [Game.OPENTTD]: OPENTTD_OFFICIAL_MAPS,
+  [Game.CS2]: CS2_OFFICIAL_MAPS,
 };

@@ -185,7 +185,7 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
           ? new Set<Tab>(["Console"]) // no RCON, but a Thunderstore mod browser
           : server.game === Game.ENSHROUDED
             ? new Set<Tab>(["Console", "Mods"]) // no RCON, no mod support
-            : server.game === Game.VRISING || server.game === Game.FACTORIO || server.game === Game.RUST
+            : server.game === Game.VRISING || server.game === Game.FACTORIO || server.game === Game.RUST || server.game === Game.CS2
               ? new Set<Tab>(["Mods"]) // RCON console, but no mod browser
               : server.game === Game.SOTF || server.game === Game.SATISFACTORY || server.game === Game.LIF || server.game === Game.ATS || server.game === Game.ETS2 || server.game === Game.CORE_KEEPER || server.game === Game.TERRARIA || server.game === Game.BEAMMP || server.game === Game.OPENTTD
                 ? new Set<Tab>(["Console", "Mods"]) // no RCON/console, no mod browser
@@ -524,16 +524,17 @@ function Overview({ server, onChanged }: { server: ServerSummary; onChanged: () 
   const isRust = server.game === Game.RUST;
   const isBeammp = server.game === Game.BEAMMP;
   const isOpenttd = server.game === Game.OPENTTD;
-  const noQuery = isMc || isBedrock || isSdtd || isZomboid || isSatisfactory || isCoreKeeper || isTerraria || isFactorio || isBeammp || isOpenttd; // Valheim/Enshrouded/V Rising have a real query port; Zomboid/Satisfactory/OpenTTD answer queries on the game port
+  const isCs2 = server.game === Game.CS2;
+  const noQuery = isMc || isBedrock || isSdtd || isZomboid || isSatisfactory || isCoreKeeper || isTerraria || isFactorio || isBeammp || isOpenttd || isCs2; // Valheim/Enshrouded/V Rising have a real query port; Zomboid/Satisfactory/OpenTTD/CS2 answer queries on the game port
   const noRcon = isIcarus || isBedrock || isValheim || isSdtd || isEnshrouded || isSotf || isSatisfactory || isLif || isAts || isCoreKeeper || isTerraria || isBeammp || isOpenttd; // 7DTD's console is telnet; OpenTTD's is in-game only
-  const noMods = isIcarus || isBedrock || isValheim || isSdtd || isEnshrouded || isVRising || isSotf || isSatisfactory || isLif || isAts || isCoreKeeper || isTerraria || isFactorio || isRust || isBeammp || isOpenttd;
+  const noMods = isIcarus || isBedrock || isValheim || isSdtd || isEnshrouded || isVRising || isSotf || isSatisfactory || isLif || isAts || isCoreKeeper || isTerraria || isFactorio || isRust || isBeammp || isOpenttd || isCs2;
   const row = (k: string, v: string): [string, string] => [k, v];
   const rows: [string, string][] = [
     row("Game", server.game),
     row("Map", mapLabel(server.map)),
     ...(isCoreKeeper
       ? [row("Connection", "Steam relay (Game ID)")]
-      : [row("Game port", `${server.ports.game}/${isMc || isTerraria ? "tcp" : "udp"}`)]),
+      : [row("Game port", `${server.ports.game}/${isMc || isTerraria ? "tcp" : isCs2 ? "tcp+udp" : "udp"}`)]),
     ...(noQuery ? [] : [row("Query port", `${server.ports.query}/udp`)]),
     ...(noRcon ? [] : [row("RCON port", `${server.ports.rcon}/tcp`)]),
     row("Max players", String(server.maxPlayers)),
