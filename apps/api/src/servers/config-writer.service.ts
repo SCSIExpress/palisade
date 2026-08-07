@@ -115,6 +115,14 @@ export class ServerConfigWriter {
       await mkdir(dir, { recursive: true });
       const file = join(dir, "servertest.ini");
       const exists = await stat(file).then(() => true).catch(() => false);
+      // Catalog servertest.ini settings (GH #17) are patched onto BOTH paths —
+      // including the first-boot seed, so create-time settings apply to the very
+      // first session — upserting only what the user set: PZ merges its own
+      // defaults in on boot, and in-game admin edits survive for untouched keys.
+      const iniPatch = {
+        catalog: this.catalog.getCatalog(Game.ZOMBOID),
+        config: JSON.parse(server.configJson) as ServerConfigValues,
+      };
       if (!exists) {
         const seed = [
           "PublicName=",
@@ -129,18 +137,13 @@ export class ServerConfigWriter {
           "SteamVAC=true",
           "",
         ].join("\n");
-        await writeFile(file, seed, "utf8");
+        await writeFile(file, patchZomboidServerIni(seed, iniPatch), "utf8");
       } else {
         const ini = await readFile(file, "utf8");
         let patched = /^MaxPlayers=/m.test(ini)
           ? ini.replace(/^MaxPlayers=.*$/m, `MaxPlayers=${server.maxPlayers}`)
           : `${ini}\nMaxPlayers=${server.maxPlayers}\n`;
-        // Catalog servertest.ini settings (GH #17): upsert only what the user set,
-        // preserving PZ's generated defaults + in-game admin edits for the rest.
-        patched = patchZomboidServerIni(patched, {
-          catalog: this.catalog.getCatalog(Game.ZOMBOID),
-          config: JSON.parse(server.configJson) as ServerConfigValues,
-        });
+        patched = patchZomboidServerIni(patched, iniPatch);
         if (patched !== ini) await writeFile(file, patched, "utf8");
       }
       // The image's fixed steam user must be able to rewrite the file on boot.
