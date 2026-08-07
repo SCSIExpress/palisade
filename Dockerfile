@@ -71,6 +71,11 @@ COPY --from=build /app/apps ./apps
 COPY --from=build /app/packages ./packages
 COPY --from=build /app/package.json /app/pnpm-workspace.yaml ./
 COPY --from=build /app/docker ./docker
+# The npm CLI bundled with the Node base image is never used at runtime (pnpm via
+# corepack + node do everything — see docker/start.sh) but ships its own deps that
+# rot into CVEs (e.g. node-tar CVE-2026-59873, CRITICAL) and trip the Trivy gate.
+# Strip it from the shipped image: less to scan, less to attack.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 EXPOSE 3000 8787
 # gosu + tini would be added here for PUID/PGID drop + signal handling.
 CMD ["bash", "docker/start.sh"]
