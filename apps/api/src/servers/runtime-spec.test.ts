@@ -1335,3 +1335,45 @@ describe("container hardening (all games)", () => {
     }
   });
 });
+
+describe("buildContainerSpec (Palworld Wine / ripps818)", () => {
+  const input = {
+    serverId: "srv1",
+    game: Game.PALWORLD_WINE,
+    map: "",
+    sessionName: "Pal Camp",
+    ports: { game: 8211, rawSocket: 0, query: 0, rcon: 25575 },
+    maxPlayers: 16,
+    adminPassword: "secret",
+    serverPassword: "hunter2",
+    modIds: [],
+    cluster: null,
+    config: { values: {} } as ServerConfigValues,
+  };
+
+  it("leaves ALWAYS_UPDATE_ON_START to the catalog, emitted exactly once", async () => {
+    const { buildContainerSpec } = await import("./runtime-spec");
+    const { PALWORLD_WINE_CATALOG } = await import("../catalog/palworld-wine.catalog");
+    const env = envOf(buildContainerSpec({ ...input, catalog: PALWORLD_WINE_CATALOG }));
+    // Pinned in the spec it would always win over the catalog, and a duplicate
+    // entry would make which value applies depend on Docker's dedupe order.
+    expect(env.filter((e) => e.startsWith("ALWAYS_UPDATE_ON_START="))).toEqual([
+      "ALWAYS_UPDATE_ON_START=false",
+    ]);
+  });
+
+  it("emits the configured value so a server can track new builds", async () => {
+    const { buildContainerSpec } = await import("./runtime-spec");
+    const { PALWORLD_WINE_CATALOG } = await import("../catalog/palworld-wine.catalog");
+    const env = envOf(
+      buildContainerSpec({
+        ...input,
+        catalog: PALWORLD_WINE_CATALOG,
+        config: { values: { ALWAYS_UPDATE_ON_START: true } } as ServerConfigValues,
+      }),
+    );
+    // The image compares against the string "true" — bools must be lowercased here,
+    // unlike the native Palworld spec's True/False.
+    expect(env).toContain("ALWAYS_UPDATE_ON_START=true");
+  });
+});

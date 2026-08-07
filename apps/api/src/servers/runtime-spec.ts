@@ -612,8 +612,13 @@ function buildPalworldWineSpec(input: RuntimeSpecInput): Docker.ContainerCreateO
     `PUBLIC_PORT=${ports.game}`,
     `MAX_PLAYERS=${input.maxPlayers}`,
     `MULTITHREAD_ENABLED=true`,
-    // The manager owns updates/backups/restarts — silence the image's own loops.
-    `ALWAYS_UPDATE_ON_START=false`,
+    // The manager owns backups/restarts — silence the image's own loops.
+    // ALWAYS_UPDATE_ON_START is NOT pinned here: it comes from the catalog, because
+    // it is the only way a Wine server's game files can be updated. The image runs
+    // SteamCMD on start only when ALWAYS_UPDATE_ON_START=true, when a
+    // .update_requested sentinel exists, or when the binary is missing entirely —
+    // and the manager drives none of those (Install/Update only pulls the image).
+    // Pinning it false stranded servers on their installed build permanently.
     `BACKUP_ENABLED=false`,
     `RESTART_ENABLED=false`,
     ...palworldCatalogEnv(input, "true"),
