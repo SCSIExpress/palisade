@@ -1116,6 +1116,12 @@ function buildSevenDaysSpec(input: RuntimeSpecInput): Docker.ContainerCreateOpti
     ...(hostNet ? {} : { ExposedPorts: exposed }),
     HostConfig: {
       Binds: binds,
+      // The image's startup UNCONDITIONALLY installs a (here: empty) crontab, and
+      // on some hosts (userns remap / rootless / setgid quirks) the spool write
+      // fails with "mkstemp: Permission denied" — fatal via the script's set -e
+      // (GH #18/#19). A world-writable tmpfs over the spool makes it succeed
+      // everywhere; the crontab is empty anyway (BACKUP=NO, MONITOR=NO).
+      Tmpfs: { "/var/spool/cron": "rw,mode=1777" },
       ...(hostNet ? { NetworkMode: "host" } : { PortBindings: bindings }),
       RestartPolicy: { Name: "no" }, // manager watchdog owns restarts
       Memory: input.ramLimitMb ? input.ramLimitMb * 1024 * 1024 : undefined,
