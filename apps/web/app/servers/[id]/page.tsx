@@ -364,6 +364,7 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
       )}
       {tab === "Players" && <PlayersTab serverId={id} />}
       {tab === "Logs" && <LogsTab serverId={id} />}
+      {tab === "Files" && <FilesTab serverId={id} />}
       {tab === "Schedules" && <ScheduleList serverId={id} />}
       {tab === "Backups" && <BackupsTab serverId={id} />}
     </div>
