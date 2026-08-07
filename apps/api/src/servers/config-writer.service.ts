@@ -11,6 +11,7 @@ import {
   renderSotfConfig,
   renderSdtdServerXml,
   patchZomboidServerIni,
+  patchZomboidSandboxVars,
   renderOpenttdConfig,
   patchLifWorldXml,
   patchAtsServerConfig,
@@ -145,6 +146,17 @@ export class ServerConfigWriter {
           : `${ini}\nMaxPlayers=${server.maxPlayers}\n`;
         patched = patchZomboidServerIni(patched, iniPatch);
         if (patched !== ini) await writeFile(file, patched, "utf8");
+      }
+      // SandboxVars (world tuning): the game GENERATES <server>_SandboxVars.lua from
+      // the sandbox preset on first boot, so patch it only once it exists — again
+      // only the user-set keys, so presets + in-game admin tuning stay authoritative
+      // for everything untouched.
+      const sandboxFile = join(dir, "servertest_SandboxVars.lua");
+      const sandbox = await readFile(sandboxFile, "utf8").catch(() => null);
+      if (sandbox !== null) {
+        const patchedSandbox = patchZomboidSandboxVars(sandbox, iniPatch);
+        if (patchedSandbox !== sandbox) await writeFile(sandboxFile, patchedSandbox, "utf8");
+        await chown(sandboxFile, SERVER_UID[game], SERVER_GID[game]).catch(() => undefined);
       }
       // The image's fixed steam user must be able to rewrite the file on boot.
       await chown(dir, SERVER_UID[game], SERVER_GID[game]).catch(() => undefined);

@@ -98,7 +98,7 @@ describe("ZOMBOID_CATALOG sanity", () => {
     const keys = ZOMBOID_CATALOG.settings.map((s) => s.key);
     expect(new Set(keys).size).toBe(keys.length);
     for (const s of ZOMBOID_CATALOG.settings) {
-      if (s.section) expect(s.section).toBe("servertest");
+      if (s.section) expect(["servertest", "sandbox"]).toContain(s.section);
       if (s.type === "enum") {
         expect(s.choices!.map((c) => c.value)).toContain(String(s.default));
       }
@@ -115,5 +115,94 @@ describe("ZOMBOID_CATALOG sanity", () => {
     const owned = ["PublicName", "Password", "RCONPort", "RCONPassword", "MaxPlayers", "Mods", "WorkshopItems", "DefaultPort", "UDPPort", "Map"];
     const keys = new Set(ZOMBOID_CATALOG.settings.map((s) => s.key));
     for (const k of owned) expect(keys.has(k), k).toBe(false);
+  });
+});
+
+describe("patchZomboidSandboxVars (SandboxVars.lua world tuning)", () => {
+  const canonical = async () => {
+    const { readFile } = await import("node:fs/promises");
+    const { join } = await import("node:path");
+    // vitest runs with cwd = apps/api
+    return readFile(join(process.cwd(), "src/servers/__fixtures__/sandboxvars-canonical.lua"), "utf8");
+  };
+  const patch = async (lua: string, values: Record<string, unknown>) => {
+    const { patchZomboidSandboxVars } = await import("./runtime-spec");
+    return patchZomboidSandboxVars(lua, {
+      catalog: ZOMBOID_CATALOG,
+      config: { values } as ServerConfigValues,
+    });
+  };
+
+  it("every sandbox catalog key exists in a real generated SandboxVars.lua", async () => {
+    const lua = await canonical();
+    for (const s of ZOMBOID_CATALOG.settings) {
+      if (s.section !== "sandbox") continue;
+      const path = (s.emitAs ?? s.key).split(".");
+      const key = path[path.length - 1]!;
+      expect(new RegExp(`^\\s*${key} = `, "m").test(lua), `${s.key} → ${key}`).toBe(true);
+    }
+  });
+
+  it("patches a top-level key in place, preserving everything else", async () => {
+    const lua = await canonical();
+    const out = await patch(lua, { XpMultiplier: 3 });
+    expect(out).toMatch(/^    XpMultiplier = 3,$/m);
+    expect(out).toMatch(/^    Zombies = 4,$/m); // untouched
+    expect(out.split("\n").length).toBe(lua.split("\n").length); // no structural drift
+  });
+
+  it("patches keys nested in ZombieLore / ZombieConfig / Map", async () => {
+    const lua = await canonical();
+    const out = await patch(lua, {
+      "ZombieLore.Speed": "3",
+      "ZombieConfig.PopulationMultiplier": 2.5,
+      "Map.AllowMiniMap": true,
+    });
+    expect(out).toMatch(/^\s+Speed = 3,$/m);
+    expect(out).toMatch(/^\s+PopulationMultiplier = 2\.5,$/m);
+    expect(out).toMatch(/^\s+AllowMiniMap = true,$/m);
+    // sibling nested keys untouched
+    expect(out).toMatch(/^\s+Strength = 2,$/m);
+    expect(out).toMatch(/^\s+RespawnHours = 72\.0,$/m);
+  });
+
+  it("does not confuse prefix keys (Zombies vs ZombiesDragDown)", async () => {
+    const lua = await canonical();
+    const out = await patch(lua, { Zombies: "6" });
+    expect(out).toMatch(/^    Zombies = 6,$/m);
+    expect(out).toMatch(/^\s+ZombiesDragDown = true,$/m); // untouched
+  });
+
+  it("writes only user-set keys — an empty config is a no-op", async () => {
+    const lua = await canonical();
+    expect(await patch(lua, {})).toBe(lua);
+  });
+
+  it("booleans and enum numbers emit as Lua values (no quotes)", async () => {
+    const lua = await canonical();
+    const out = await patch(lua, { FireSpread: false, FoodLoot: "7" });
+    expect(out).toMatch(/^    FireSpread = false,$/m);
+    expect(out).toMatch(/^    FoodLoot = 7,$/m);
+  });
+
+  it("sandbox settings never leak into the container env", async () => {
+    const { buildContainerSpec } = await import("./runtime-spec");
+    const spec = buildContainerSpec({
+      serverId: "srv1",
+      game: Game.ZOMBOID,
+      map: "Muldraugh, KY",
+      sessionName: "PZ",
+      ports: { game: 16261, rawSocket: 16262, query: 16261, rcon: 27015 },
+      maxPlayers: 16,
+      adminPassword: "secret",
+      serverPassword: "",
+      modIds: [],
+      cluster: null,
+      config: { values: { XpMultiplier: 3, "ZombieLore.Speed": "3" } } as ServerConfigValues,
+      catalog: ZOMBOID_CATALOG,
+    });
+    const env = spec.Env ?? [];
+    expect(env.some((e) => e.includes("XpMultiplier"))).toBe(false);
+    expect(env.some((e) => e.includes("ZombieLore"))).toBe(false);
   });
 });

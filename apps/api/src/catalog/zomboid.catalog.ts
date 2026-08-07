@@ -30,6 +30,41 @@ function zset(
   return { key, label, category, target: SettingTarget.Env, type, default: def, emitAs: key, ...extra };
 }
 
+/** A SandboxVars.lua key (see patchZomboidSandboxVars); emitAs may be "Table.Key"
+ *  for the Map / ZombieLore / ZombieConfig sub-tables. Numeric-enum values emit as
+ *  Lua numbers. Defaults are UI-display only — only user-set keys are written. */
+function zsand(
+  key: string,
+  label: string,
+  category: string,
+  type: SettingDef["type"],
+  def: SettingDef["default"],
+  extra: Partial<SettingDef> = {},
+): SettingDef {
+  return {
+    key,
+    label,
+    category,
+    target: SettingTarget.Env,
+    section: "sandbox",
+    type,
+    default: def,
+    emitAs: key,
+    ...extra,
+  };
+}
+
+/** Shared loot-rarity scale (SandboxVars loot settings). */
+const LOOT_RARITY = [
+  { value: "1", label: "None" },
+  { value: "2", label: "Insanely rare" },
+  { value: "3", label: "Extremely rare" },
+  { value: "4", label: "Rare" },
+  { value: "5", label: "Normal" },
+  { value: "6", label: "Common" },
+  { value: "7", label: "Abundant" },
+];
+
 /** A servertest.ini key (see patchZomboidServerIni). */
 function zini(
   key: string,
@@ -571,6 +606,580 @@ const settings: SettingDef[] = [
   }),
   zini("HideDisguisedUserName", "Hide disguised usernames", "Anti-cheat", "bool", false, {
     advanced: true,
+  }),
+
+  // ═══ SandboxVars.lua — world tuning (patchZomboidSandboxVars) ═════════════════
+  // ── Zombies ───────────────────────────────────────────────────────────────────
+  zsand("Zombies", "Zombie population", "Zombies", "enum", "4", {
+    choices: [
+      { value: "1", label: "Insane" },
+      { value: "2", label: "Very high" },
+      { value: "3", label: "High" },
+      { value: "4", label: "Normal" },
+      { value: "5", label: "Low" },
+      { value: "6", label: "None" },
+    ],
+    help: "Overall zombie population preset. Fine-tune with the multipliers below.",
+  }),
+  zsand("ZombieLore.Speed", "Zombie speed", "Zombies", "enum", "2", {
+    emitAs: "ZombieLore.Speed",
+    choices: [
+      { value: "1", label: "Sprinters" },
+      { value: "2", label: "Fast shamblers" },
+      { value: "3", label: "Shamblers" },
+      { value: "4", label: "Random" },
+    ],
+  }),
+  zsand("ZombieLore.Strength", "Zombie strength", "Zombies", "enum", "2", {
+    emitAs: "ZombieLore.Strength",
+    choices: [
+      { value: "1", label: "Superhuman" },
+      { value: "2", label: "Normal" },
+      { value: "3", label: "Weak" },
+      { value: "4", label: "Random" },
+    ],
+  }),
+  zsand("ZombieLore.Toughness", "Zombie toughness", "Zombies", "enum", "2", {
+    emitAs: "ZombieLore.Toughness",
+    choices: [
+      { value: "1", label: "Tough" },
+      { value: "2", label: "Normal" },
+      { value: "3", label: "Fragile" },
+      { value: "4", label: "Random" },
+    ],
+  }),
+  zsand("ZombieLore.Transmission", "Infection transmission", "Zombies", "enum", "1", {
+    emitAs: "ZombieLore.Transmission",
+    choices: [
+      { value: "1", label: "Blood + saliva" },
+      { value: "2", label: "Saliva only" },
+      { value: "3", label: "Everyone's infected" },
+      { value: "4", label: "None" },
+    ],
+    help: "How the Knox infection spreads to players.",
+  }),
+  zsand("ZombieLore.Mortality", "Infection mortality", "Zombies", "enum", "5", {
+    emitAs: "ZombieLore.Mortality",
+    choices: [
+      { value: "1", label: "Instant" },
+      { value: "2", label: "0–30 seconds" },
+      { value: "3", label: "0–1 minute" },
+      { value: "4", label: "0–12 hours" },
+      { value: "5", label: "2–3 days" },
+      { value: "6", label: "1–2 weeks" },
+      { value: "7", label: "Never" },
+    ],
+    help: "How fast an infected player dies.",
+  }),
+  zsand("ZombieLore.Reanimate", "Reanimation time", "Zombies", "enum", "3", {
+    emitAs: "ZombieLore.Reanimate",
+    advanced: true,
+    choices: [
+      { value: "1", label: "Instant" },
+      { value: "2", label: "0–30 seconds" },
+      { value: "3", label: "0–1 minute" },
+      { value: "4", label: "0–12 hours" },
+      { value: "5", label: "2–3 days" },
+      { value: "6", label: "1–2 weeks" },
+    ],
+  }),
+  zsand("ZombieLore.Cognition", "Zombie intelligence", "Zombies", "enum", "3", {
+    emitAs: "ZombieLore.Cognition",
+    choices: [
+      { value: "1", label: "Navigate + use doors" },
+      { value: "2", label: "Navigate" },
+      { value: "3", label: "Basic navigation" },
+      { value: "4", label: "Random" },
+    ],
+  }),
+  zsand("ZombieLore.Memory", "Zombie memory", "Zombies", "enum", "2", {
+    emitAs: "ZombieLore.Memory",
+    advanced: true,
+    choices: [
+      { value: "1", label: "Long" },
+      { value: "2", label: "Normal" },
+      { value: "3", label: "Short" },
+      { value: "4", label: "None" },
+    ],
+  }),
+  zsand("ZombieLore.Sight", "Zombie sight", "Zombies", "enum", "2", {
+    emitAs: "ZombieLore.Sight",
+    choices: [
+      { value: "1", label: "Eagle" },
+      { value: "2", label: "Normal" },
+      { value: "3", label: "Poor" },
+      { value: "4", label: "Random" },
+    ],
+  }),
+  zsand("ZombieLore.Hearing", "Zombie hearing", "Zombies", "enum", "2", {
+    emitAs: "ZombieLore.Hearing",
+    choices: [
+      { value: "1", label: "Pinpoint" },
+      { value: "2", label: "Normal" },
+      { value: "3", label: "Poor" },
+      { value: "4", label: "Random" },
+    ],
+  }),
+  zsand("ZombieLore.ActiveOnly", "Zombie activity hours", "Zombies", "enum", "1", {
+    emitAs: "ZombieLore.ActiveOnly",
+    advanced: true,
+    choices: [
+      { value: "1", label: "Both day and night" },
+      { value: "2", label: "Night only" },
+      { value: "3", label: "Day only" },
+    ],
+  }),
+  zsand("ZombieLore.ThumpOnConstruction", "Zombies attack constructions", "Zombies", "bool", true, {
+    emitAs: "ZombieLore.ThumpOnConstruction",
+    advanced: true,
+  }),
+  zsand("ZombieLore.ZombiesDragDown", "Zombies drag players down", "Zombies", "bool", true, {
+    emitAs: "ZombieLore.ZombiesDragDown",
+    advanced: true,
+  }),
+  zsand("ZombieLore.ZombiesFenceLunge", "Zombies lunge over fences", "Zombies", "bool", true, {
+    emitAs: "ZombieLore.ZombiesFenceLunge",
+    advanced: true,
+  }),
+  zsand("ZombieLore.TriggerHouseAlarm", "Zombies trigger house alarms", "Zombies", "bool", false, {
+    emitAs: "ZombieLore.TriggerHouseAlarm",
+    advanced: true,
+  }),
+  zsand("ZombieConfig.PopulationMultiplier", "Population multiplier", "Zombies", "float", 1.0, {
+    emitAs: "ZombieConfig.PopulationMultiplier",
+    min: 0,
+    max: 4,
+    step: 0.05,
+    unit: "×",
+    help: "Master zombie-count multiplier (0 = none, 4 = insane).",
+  }),
+  zsand("ZombieConfig.PopulationStartMultiplier", "Day-1 population", "Zombies", "float", 1.0, {
+    emitAs: "ZombieConfig.PopulationStartMultiplier",
+    min: 0,
+    max: 4,
+    step: 0.05,
+    unit: "×",
+    advanced: true,
+  }),
+  zsand("ZombieConfig.PopulationPeakMultiplier", "Peak population", "Zombies", "float", 1.5, {
+    emitAs: "ZombieConfig.PopulationPeakMultiplier",
+    min: 0,
+    max: 4,
+    step: 0.05,
+    unit: "×",
+    advanced: true,
+  }),
+  zsand("ZombieConfig.PopulationPeakDay", "Peak population day", "Zombies", "int", 28, {
+    emitAs: "ZombieConfig.PopulationPeakDay",
+    min: 1,
+    max: 365,
+    unit: "days",
+    advanced: true,
+  }),
+  zsand("ZombieConfig.RespawnHours", "Zombie respawn hours", "Zombies", "float", 72, {
+    emitAs: "ZombieConfig.RespawnHours",
+    min: 0,
+    max: 8760,
+    step: 1,
+    unit: "h",
+    help: "In-game hours before zombies may respawn in a cell. 0 = never respawn.",
+  }),
+  zsand("ZombieConfig.RespawnUnseenHours", "Respawn unseen hours", "Zombies", "float", 16, {
+    emitAs: "ZombieConfig.RespawnUnseenHours",
+    min: 0,
+    max: 8760,
+    step: 1,
+    unit: "h",
+    advanced: true,
+    help: "A chunk must be unseen this long before zombies respawn in it.",
+  }),
+  zsand("ZombieConfig.RespawnMultiplier", "Respawn fraction", "Zombies", "float", 0.1, {
+    emitAs: "ZombieConfig.RespawnMultiplier",
+    min: 0,
+    max: 1,
+    step: 0.01,
+    advanced: true,
+    help: "Fraction of a cell's population that respawns each respawn tick.",
+  }),
+  zsand("ZombieConfig.RallyGroupSize", "Zombie group size", "Zombies", "int", 20, {
+    emitAs: "ZombieConfig.RallyGroupSize",
+    min: 0,
+    max: 1000,
+    advanced: true,
+    help: "How many zombies gather into roaming groups. 0 = no grouping.",
+  }),
+  zsand("ZombieConfig.FollowSoundDistance", "Sound follow distance", "Zombies", "int", 100, {
+    emitAs: "ZombieConfig.FollowSoundDistance",
+    min: 10,
+    max: 1000,
+    advanced: true,
+    help: "How far zombies travel toward distant sounds (tiles).",
+  }),
+
+  // ── Loot ──────────────────────────────────────────────────────────────────────
+  zsand("FoodLoot", "Food", "Loot", "enum", "4", { choices: LOOT_RARITY }),
+  zsand("CannedFoodLoot", "Canned food", "Loot", "enum", "4", { choices: LOOT_RARITY }),
+  zsand("WeaponLoot", "Melee weapons", "Loot", "enum", "4", { choices: LOOT_RARITY }),
+  zsand("RangedWeaponLoot", "Firearms", "Loot", "enum", "4", { choices: LOOT_RARITY }),
+  zsand("AmmoLoot", "Ammo", "Loot", "enum", "4", { choices: LOOT_RARITY }),
+  zsand("MedicalLoot", "Medical", "Loot", "enum", "4", { choices: LOOT_RARITY }),
+  zsand("MechanicsLoot", "Mechanics / car parts", "Loot", "enum", "4", { choices: LOOT_RARITY }),
+  zsand("SurvivalGearsLoot", "Survival gear", "Loot", "enum", "4", { choices: LOOT_RARITY }),
+  zsand("LiteratureLoot", "Literature", "Loot", "enum", "4", { choices: LOOT_RARITY }),
+  zsand("OtherLoot", "Everything else", "Loot", "enum", "4", { choices: LOOT_RARITY }),
+  zsand("LootRespawn", "Loot respawn", "Loot", "enum", "1", {
+    choices: [
+      { value: "1", label: "Never" },
+      { value: "2", label: "Every day" },
+      { value: "3", label: "Every week" },
+      { value: "4", label: "Every month" },
+      { value: "5", label: "Every two months" },
+    ],
+    help: "Whether emptied containers restock over time.",
+  }),
+  zsand("SeenHoursPreventLootRespawn", "No respawn if seen within", "Loot", "int", 0, {
+    min: 0,
+    max: 8760,
+    unit: "h",
+    advanced: true,
+    help: "A container seen within this many in-game hours won't restock. 0 = off.",
+  }),
+  zsand("HoursForWorldItemRemoval", "Dropped-item cleanup", "Loot", "float", 24, {
+    min: 0,
+    max: 8760,
+    step: 1,
+    unit: "h",
+    advanced: true,
+    help: "In-game hours before dropped items on the ground are cleaned up.",
+  }),
+
+  // ── World (sandbox: time / weather / events) ──────────────────────────────────
+  zsand("DayLength", "Day length", "World", "enum", "3", {
+    choices: [
+      { value: "1", label: "15 minutes" },
+      { value: "2", label: "30 minutes" },
+      { value: "3", label: "1 hour" },
+      { value: "4", label: "2 hours" },
+      { value: "5", label: "3 hours" },
+      { value: "6", label: "4 hours" },
+      { value: "7", label: "5 hours" },
+      { value: "8", label: "6 hours" },
+      { value: "9", label: "7 hours" },
+      { value: "10", label: "8 hours" },
+      { value: "11", label: "9 hours" },
+      { value: "12", label: "10 hours" },
+      { value: "13", label: "11 hours" },
+      { value: "14", label: "12 hours" },
+    ],
+    help: "Real-time length of one in-game day.",
+  }),
+  zsand("StartMonth", "Start month", "World", "int", 7, {
+    min: 1,
+    max: 12,
+    advanced: true,
+    help: "Month the world starts in (July = the classic Knox Event start).",
+  }),
+  zsand("TimeSinceApo", "Months since the apocalypse", "World", "int", 1, {
+    min: 1,
+    max: 13,
+    advanced: true,
+    help: "How advanced world erosion/decay is at spawn (1 = day one).",
+  }),
+  zsand("WaterShutModifier", "Water shutoff (days)", "World", "int", 14, {
+    min: -1,
+    max: 2147483647,
+    help: "Days until tap water shuts off. -1 = instant, 2147483647 = never.",
+  }),
+  zsand("ElecShutModifier", "Electricity shutoff (days)", "World", "int", 14, {
+    min: -1,
+    max: 2147483647,
+    help: "Days until the power grid shuts off. -1 = instant, 2147483647 = never.",
+  }),
+  zsand("NightDarkness", "Night darkness", "World", "enum", "3", {
+    choices: [
+      { value: "1", label: "Pitch black" },
+      { value: "2", label: "Dark" },
+      { value: "3", label: "Normal" },
+      { value: "4", label: "Bright" },
+    ],
+  }),
+  zsand("Helicopter", "Helicopter event", "World", "enum", "2", {
+    choices: [
+      { value: "1", label: "Never" },
+      { value: "2", label: "Once" },
+      { value: "3", label: "Sometimes" },
+      { value: "4", label: "Often" },
+    ],
+    help: "The heli flyover that drags hordes toward you.",
+  }),
+  zsand("MetaEvent", "Meta events (distant gunfire etc.)", "World", "enum", "2", {
+    advanced: true,
+    choices: [
+      { value: "1", label: "Never" },
+      { value: "2", label: "Sometimes" },
+      { value: "3", label: "Often" },
+    ],
+  }),
+  zsand("GeneratorSpawning", "Generator spawn rate", "World", "enum", "3", {
+    advanced: true,
+    choices: [
+      { value: "1", label: "Extremely rare" },
+      { value: "2", label: "Rare" },
+      { value: "3", label: "Sometimes" },
+      { value: "4", label: "Often" },
+    ],
+  }),
+  zsand("GeneratorFuelConsumption", "Generator fuel use", "World", "float", 1.0, {
+    min: 0,
+    max: 10,
+    step: 0.1,
+    unit: "×",
+    advanced: true,
+  }),
+  zsand("Alarm", "House alarms", "World", "enum", "4", {
+    advanced: true,
+    choices: [
+      { value: "1", label: "Never" },
+      { value: "2", label: "Extremely rare" },
+      { value: "3", label: "Rare" },
+      { value: "4", label: "Sometimes" },
+      { value: "5", label: "Often" },
+      { value: "6", label: "Very often" },
+    ],
+  }),
+  zsand("LockedHouses", "Locked houses", "World", "enum", "6", {
+    advanced: true,
+    choices: [
+      { value: "1", label: "Never" },
+      { value: "2", label: "Extremely rare" },
+      { value: "3", label: "Rare" },
+      { value: "4", label: "Sometimes" },
+      { value: "5", label: "Often" },
+      { value: "6", label: "Very often" },
+    ],
+  }),
+  zsand("FireSpread", "Fire spread", "World", "bool", true, {
+    help: "Whether fire spreads between tiles (sandbox side — the server INI 'Disable fire' overrides everything).",
+  }),
+  zsand("Map.AllowMiniMap", "Mini-map", "World", "bool", false, {
+    emitAs: "Map.AllowMiniMap",
+    advanced: true,
+  }),
+  zsand("Map.AllowWorldMap", "World map", "World", "bool", true, {
+    emitAs: "Map.AllowWorldMap",
+    advanced: true,
+  }),
+  zsand("Map.MapAllKnown", "Map fully revealed", "World", "bool", false, {
+    emitAs: "Map.MapAllKnown",
+    advanced: true,
+  }),
+
+  // ── Survival ──────────────────────────────────────────────────────────────────
+  zsand("XpMultiplier", "XP multiplier", "Survival", "float", 1.0, {
+    min: 0.1,
+    max: 100,
+    step: 0.1,
+    unit: "×",
+  }),
+  zsand("StatsDecrease", "Hunger/thirst/fatigue rate", "Survival", "enum", "3", {
+    choices: [
+      { value: "1", label: "Very fast" },
+      { value: "2", label: "Fast" },
+      { value: "3", label: "Normal" },
+      { value: "4", label: "Slow" },
+    ],
+  }),
+  zsand("Nutrition", "Nutrition system", "Survival", "bool", true, {
+    advanced: true,
+    help: "Track calories/weight from food.",
+  }),
+  zsand("FoodRotSpeed", "Food rot speed", "Survival", "enum", "3", {
+    choices: [
+      { value: "1", label: "Very fast" },
+      { value: "2", label: "Fast" },
+      { value: "3", label: "Normal" },
+      { value: "4", label: "Slow" },
+      { value: "5", label: "Very slow" },
+    ],
+  }),
+  zsand("FridgeFactor", "Fridge effectiveness", "Survival", "enum", "3", {
+    advanced: true,
+    choices: [
+      { value: "1", label: "Very low" },
+      { value: "2", label: "Low" },
+      { value: "3", label: "Normal" },
+      { value: "4", label: "High" },
+      { value: "5", label: "Very high" },
+    ],
+  }),
+  zsand("Farming", "Farming speed", "Survival", "enum", "3", {
+    advanced: true,
+    choices: [
+      { value: "1", label: "Very fast" },
+      { value: "2", label: "Fast" },
+      { value: "3", label: "Normal" },
+      { value: "4", label: "Slow" },
+      { value: "5", label: "Very slow" },
+    ],
+  }),
+  zsand("PlantAbundance", "Wild plant abundance", "Survival", "enum", "3", {
+    advanced: true,
+    choices: [
+      { value: "1", label: "Very poor" },
+      { value: "2", label: "Poor" },
+      { value: "3", label: "Normal" },
+      { value: "4", label: "Abundant" },
+      { value: "5", label: "Very abundant" },
+    ],
+  }),
+  zsand("NatureAbundance", "Nature abundance (fish/forage)", "Survival", "enum", "3", {
+    advanced: true,
+    choices: [
+      { value: "1", label: "Very poor" },
+      { value: "2", label: "Poor" },
+      { value: "3", label: "Normal" },
+      { value: "4", label: "Abundant" },
+      { value: "5", label: "Very abundant" },
+    ],
+  }),
+  zsand("InjurySeverity", "Injury severity", "Survival", "enum", "2", {
+    choices: [
+      { value: "1", label: "Low" },
+      { value: "2", label: "Normal" },
+      { value: "3", label: "High" },
+    ],
+  }),
+  zsand("BoneFracture", "Bone fractures", "Survival", "bool", true, {
+    advanced: true,
+  }),
+  zsand("MultiHitZombies", "Multi-hit melee", "Survival", "bool", false, {
+    help: "Melee swings can hit multiple zombies (the big difficulty lever).",
+  }),
+  zsand("RearVulnerability", "Rear vulnerability", "Survival", "enum", "3", {
+    advanced: true,
+    choices: [
+      { value: "1", label: "Low" },
+      { value: "2", label: "Medium" },
+      { value: "3", label: "High" },
+    ],
+    help: "Chance of being bitten when attacked from behind.",
+  }),
+  zsand("CharacterFreePoints", "Free trait points", "Survival", "int", 0, {
+    min: -100,
+    max: 100,
+    advanced: true,
+    help: "Extra trait points at character creation (negative = handicap).",
+  }),
+  zsand("StarterKit", "Starter kit", "Survival", "bool", false, {
+    advanced: true,
+    help: "Spawn with a small bag of basics (bat, water bottle, food, bandages).",
+  }),
+  zsand("HoursForCorpseRemoval", "Corpse removal after", "Survival", "float", 216, {
+    min: -1,
+    max: 8760,
+    step: 1,
+    unit: "h",
+    advanced: true,
+    help: "In-game hours before zombie corpses despawn. -1 = never.",
+  }),
+
+  // ── Vehicles ──────────────────────────────────────────────────────────────────
+  zsand("EnableVehicles", "Vehicles enabled", "Vehicles", "bool", true),
+  zsand("CarSpawnRate", "Car spawn rate", "Vehicles", "enum", "3", {
+    choices: [
+      { value: "1", label: "None" },
+      { value: "2", label: "Very low" },
+      { value: "3", label: "Low" },
+      { value: "4", label: "Normal" },
+      { value: "5", label: "High" },
+    ],
+  }),
+  zsand("ChanceHasGas", "Chance cars have gas", "Vehicles", "enum", "1", {
+    choices: [
+      { value: "1", label: "Low" },
+      { value: "2", label: "Normal" },
+      { value: "3", label: "High" },
+    ],
+  }),
+  zsand("InitialGas", "Gas amount in cars", "Vehicles", "enum", "2", {
+    advanced: true,
+    choices: [
+      { value: "1", label: "Very low" },
+      { value: "2", label: "Low" },
+      { value: "3", label: "Normal" },
+      { value: "4", label: "High" },
+      { value: "5", label: "Full" },
+    ],
+  }),
+  zsand("FuelStationGas", "Gas station reserves", "Vehicles", "enum", "5", {
+    advanced: true,
+    choices: [
+      { value: "1", label: "Empty" },
+      { value: "2", label: "Super low" },
+      { value: "3", label: "Very low" },
+      { value: "4", label: "Low" },
+      { value: "5", label: "Normal" },
+      { value: "6", label: "High" },
+      { value: "7", label: "Very high" },
+      { value: "8", label: "Full" },
+    ],
+  }),
+  zsand("CarGasConsumption", "Fuel consumption", "Vehicles", "float", 1.0, {
+    min: 0,
+    max: 100,
+    step: 0.1,
+    unit: "×",
+    advanced: true,
+  }),
+  zsand("CarGeneralCondition", "Car condition", "Vehicles", "enum", "2", {
+    choices: [
+      { value: "1", label: "Very low" },
+      { value: "2", label: "Low" },
+      { value: "3", label: "Normal" },
+      { value: "4", label: "High" },
+      { value: "5", label: "Very high" },
+    ],
+  }),
+  zsand("LockedCar", "Locked cars", "Vehicles", "enum", "3", {
+    advanced: true,
+    choices: [
+      { value: "1", label: "Never" },
+      { value: "2", label: "Extremely rare" },
+      { value: "3", label: "Rare" },
+      { value: "4", label: "Sometimes" },
+      { value: "5", label: "Often" },
+      { value: "6", label: "Very often" },
+    ],
+  }),
+  zsand("CarAlarm", "Car alarms", "Vehicles", "enum", "2", {
+    advanced: true,
+    choices: [
+      { value: "1", label: "Never" },
+      { value: "2", label: "Extremely rare" },
+      { value: "3", label: "Rare" },
+      { value: "4", label: "Sometimes" },
+      { value: "5", label: "Often" },
+      { value: "6", label: "Very often" },
+    ],
+  }),
+  zsand("TrafficJam", "Traffic jams", "Vehicles", "bool", true, {
+    advanced: true,
+    help: "Spawn road-blocking vehicle pile-ups.",
+  }),
+  zsand("PlayerDamageFromCrash", "Crash damage to players", "Vehicles", "bool", true, {
+    advanced: true,
+  }),
+  zsand("SirenShutoffHours", "Siren shutoff", "Vehicles", "float", 0, {
+    min: 0,
+    max: 168,
+    step: 1,
+    unit: "h",
+    advanced: true,
+    help: "Hours before a wailing car siren dies. 0 = only when the battery drains.",
+  }),
+  zsand("VehicleEasyUse", "Easy vehicle use", "Vehicles", "bool", false, {
+    advanced: true,
+    help: "No keys needed, unlimited gas, no damage.",
   }),
 
   // ── Network / visibility (env) ────────────────────────────────────────────────

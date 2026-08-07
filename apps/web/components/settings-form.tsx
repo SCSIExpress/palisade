@@ -156,12 +156,14 @@ const BEDROCK_GROUPS: SettingGroup[] = [
 // Project Zomboid: env settings + the full servertest.ini surface (GH #17).
 const ZOMBOID_GROUPS: SettingGroup[] = [
   { id: "world", label: "World", Icon: MapIcon, cats: ["World"] },
+  { id: "zombies", label: "Zombies", Icon: Skull, cats: ["Zombies"] },
+  { id: "loot", label: "Loot", Icon: Package, cats: ["Loot"] },
+  { id: "survival", label: "Survival", Icon: Swords, cats: ["Survival"] },
+  { id: "vehicles", label: "Vehicles", Icon: Gauge, cats: ["Vehicles"] },
   { id: "server", label: "Server", Icon: SlidersHorizontal, cats: ["Server", "Network", "Performance"] },
-  { id: "pvp", label: "PvP", Icon: Swords, cats: ["PvP"] },
-  { id: "safehouse", label: "Safehouses", Icon: Shield, cats: ["Safehouse"] },
+  { id: "pvp", label: "PvP", Icon: Shield, cats: ["PvP", "Safehouse"] },
   { id: "chat", label: "Chat & Voice", Icon: MessageSquare, cats: ["Chat & Voice", "Discord"] },
-  { id: "backups", label: "Backups", Icon: Package, cats: ["Game backups"] },
-  { id: "anticheat", label: "Anti-cheat", Icon: Skull, cats: ["Anti-cheat"] },
+  { id: "backups", label: "Backups", Icon: Clock, cats: ["Game backups", "Anti-cheat"] },
 ];
 
 const VALHEIM_GROUPS: SettingGroup[] = [
