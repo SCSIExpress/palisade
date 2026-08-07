@@ -1384,6 +1384,11 @@ export function patchZomboidSandboxVars(
     if (def.section !== "sandbox") continue;
     const raw = input.config.values?.[def.key];
     if (raw === undefined || raw === null) continue; // untouched → leave as generated
+    // create() seeds configJson with EVERY catalog default, so presence alone can't
+    // mean "user-set". Only a value that DIFFERS from the catalog default is a real
+    // user choice — writing defaults here would stomp the preset-generated values
+    // and revert in-game admin tuning on every restart.
+    if (String(raw) === String(def.default)) continue;
     // Enum choices carry numeric values as strings — emit them as Lua numbers.
     const value =
       def.type === "enum" || def.type === "int" || def.type === "float"
@@ -1409,6 +1414,10 @@ export function patchZomboidServerIni(
     if (def.section !== "servertest") continue;
     const raw = input.config.values?.[def.key];
     if (raw === undefined || raw === null) continue; // untouched → leave PZ's value
+    // create() seeds configJson with EVERY catalog default (see create()), so only
+    // a value differing from the default is a genuine user choice — writing
+    // defaults would stomp PZ's build defaults + in-game admin edits every start.
+    if (String(raw) === String(def.default)) continue;
     const key = def.emitAs ?? def.key;
     // INI values are read to end-of-line — a stray newline would corrupt the file.
     const val = typeof raw === "boolean" ? (raw ? "true" : "false") : String(raw).replace(/[\r\n]/g, " ");

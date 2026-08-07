@@ -206,3 +206,48 @@ describe("patchZomboidSandboxVars (SandboxVars.lua world tuning)", () => {
     expect(env.some((e) => e.includes("ZombieLore"))).toBe(false);
   });
 });
+
+describe("default-seeded configJson does not stomp game values (live-caught regression)", () => {
+  // create() seeds configJson with EVERY catalog default — presence must not count
+  // as "user-set" or catalog defaults overwrite preset/in-game values on restart.
+  const allDefaults = (): Record<string, unknown> => {
+    const out: Record<string, unknown> = {};
+    for (const s of ZOMBOID_CATALOG.settings) out[s.key] = s.default;
+    return out;
+  };
+
+  it("SandboxVars: a config of pure defaults is a NO-OP", async () => {
+    const { patchZomboidSandboxVars } = await import("./runtime-spec");
+    const { readFile } = await import("node:fs/promises");
+    const { join } = await import("node:path");
+    const lua = await readFile(join(process.cwd(), "src/servers/__fixtures__/sandboxvars-canonical.lua"), "utf8");
+    const out = patchZomboidSandboxVars(lua, {
+      catalog: ZOMBOID_CATALOG,
+      config: { values: allDefaults() } as ServerConfigValues,
+    });
+    expect(out).toBe(lua); // CannedFoodLoot=2, MultiHitZombies=true etc. all preserved
+  });
+
+  it("SandboxVars: defaults plus ONE real choice writes exactly that choice", async () => {
+    const { patchZomboidSandboxVars } = await import("./runtime-spec");
+    const { readFile } = await import("node:fs/promises");
+    const { join } = await import("node:path");
+    const lua = await readFile(join(process.cwd(), "src/servers/__fixtures__/sandboxvars-canonical.lua"), "utf8");
+    const out = patchZomboidSandboxVars(lua, {
+      catalog: ZOMBOID_CATALOG,
+      config: { values: { ...allDefaults(), XpMultiplier: 5 } } as ServerConfigValues,
+    });
+    expect(out).toMatch(/^    XpMultiplier = 5,$/m);
+    expect(out).toMatch(/^    CannedFoodLoot = 2,$/m); // canonical value survives
+    expect(out).toMatch(/^    MultiHitZombies = true,$/m);
+  });
+
+  it("servertest.ini: a config of pure defaults is a NO-OP too", async () => {
+    const { patchZomboidServerIni } = await import("./runtime-spec");
+    const out = patchZomboidServerIni(SAMPLE_INI, {
+      catalog: ZOMBOID_CATALOG,
+      config: { values: allDefaults() } as ServerConfigValues,
+    });
+    expect(out).toBe(SAMPLE_INI); // PVP=true, PauseEmpty=true etc. preserved
+  });
+});
