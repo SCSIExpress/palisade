@@ -25,8 +25,12 @@ term() {
 trap term TERM INT
 
 # If either process dies, take the whole container down so Docker restarts it.
-wait -n "$API_PID" "$WEB_PID"
-CODE=$?
+# The `|| CODE=$?` is load-bearing: a trapped SIGTERM makes `wait -n` return
+# >128, and under `set -e` that would abort the script RIGHT HERE — bash (PID 1)
+# exits, Docker declares the container dead and SIGKILLs node before the
+# graceful shutdown (world saves!) gets a single millisecond.
+CODE=0
+wait -n "$API_PID" "$WEB_PID" || CODE=$?
 # One side exited (or we were signalled) — bring the sibling down and reap both
 # so the API's graceful shutdown fully completes before the container dies.
 term
