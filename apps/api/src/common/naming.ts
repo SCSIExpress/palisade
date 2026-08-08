@@ -31,6 +31,7 @@ const CONTAINER_PREFIX: Record<Game, string> = {
   [Game.BEAMMP]: "beammp",
   [Game.OPENTTD]: "openttd",
   [Game.CS2]: "cs2",
+  [Game.DST]: "dst",
 };
 
 function slug(s: string): string {

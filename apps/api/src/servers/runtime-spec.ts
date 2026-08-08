@@ -46,6 +46,7 @@ import {
   BEAMMP_SERVER_MODS_DIR,
   OPENTTD_DATA_DIR,
   CS2_DATA_DIR,
+  DST_DATA_DIR,
 } from "../common/images";
 // (ATS reuses the ich777 wrapper mount points LIF_STEAMCMD_DIR / LIF_SERVERFILES_DIR.)
 import { ZOMBOID_STEAM_PORTS } from "../catalog/ports";
@@ -202,6 +203,7 @@ function gameSpecFor(input: RuntimeSpecInput): Docker.ContainerCreateOptions {
   if (input.game === Game.BEAMMP) return buildBeammpSpec(input);
   if (input.game === Game.OPENTTD) return buildOpenttdSpec(input);
   if (input.game === Game.CS2) return buildCs2Spec(input);
+  if (input.game === Game.DST) return buildDstSpec(input);
   return buildAseSpec(input);
 }
 
@@ -2335,6 +2337,96 @@ function cs2CatalogEnv(input: RuntimeSpecInput): string[] {
     out.push(`${def.emitAs ?? def.key}=${val}`);
   }
   return out;
+}
+
+/**
+ * Don't Starve Together (jamesits/dst-server): volume-driven — the cluster
+ * (cluster.ini rendered by the config-writer, Klei token from the admin field,
+ * saves) lives under /data/DoNotStarveTogether/Cluster_1. The image installs/
+ * updates DST via SteamCMD on start and runs BOTH shards (master 10999/udp +
+ * caves 11000/udp); Steam auth rides 12346/12347 udp. No RCON.
+ */
+function buildDstSpec(input: RuntimeSpecInput): Docker.ContainerCreateOptions {
+  const env = loadEnv();
+  const { ports } = input;
+  const name = containerName(input.serverId, input.game, input.sessionName);
+
+  const dstEnv = [
+    `TZ=${input.timezone || env.TZ}`,
+    `DST_SERVER_ARCH=amd64`,
+    // Belt-and-braces: the config-writer also persists the token file; the env
+    // covers a wiped volume's very first boot.
+    ...(input.adminPassword ? [`DST_CLUSTER_TOKEN=${input.adminPassword}`] : []),
+  ];
+
+  const binds = [`${HostPaths.instanceRoot(input.serverId)}:${DST_DATA_DIR}`];
+  const hostNet = env.GAME_HOST_NETWORK;
+  const udp = [ports.game, ports.rawSocket, ports.query, ports.query + 1];
+  return {
+    name,
+    Image: IMAGES[input.game],
+    Hostname: name,
+    Env: dstEnv,
+    Labels: serverLabels(input, env.PUBLIC_BASE_URL),
+    ...(hostNet ? {} : { ExposedPorts: Object.fromEntries(udp.map((p) => [portKey(p, "udp"), {}])) }),
+    HostConfig: {
+      Binds: binds,
+      ...(hostNet
+        ? { NetworkMode: "host" }
+        : {
+            PortBindings: Object.fromEntries(udp.map((p) => [portKey(p, "udp"), [{ HostPort: String(p) }]])),
+          }),
+      RestartPolicy: { Name: "no" }, // manager watchdog owns restarts
+      Memory: input.ramLimitMb ? input.ramLimitMb * 1024 * 1024 : undefined,
+      NanoCpus: input.cpuLimit ? Math.round(input.cpuLimit * 1e9) : undefined,
+    },
+    ...(hostNet ? {} : { NetworkingConfig: { EndpointsConfig: { [ARK_NETWORK]: {} } } }),
+  };
+}
+
+/**
+ * Render DST's cluster.ini from the orchestrator fields + catalog settings
+ * (emitAs = "SECTION.key", OpenTTD-style). Values are read to end-of-line, so
+ * control characters are stripped from free text.
+ */
+export function renderDstClusterIni(input: {
+  sessionName: string;
+  serverPassword: string;
+  maxPlayers: number;
+  gamePort: number;
+  catalog: SettingsCatalog;
+  config: ServerConfigValues;
+}): string {
+  const clean = (v: unknown) => String(v).replace(/[\r\n]/g, " ").trim();
+  const sections: Record<string, Record<string, string | number>> = {
+    GAMEPLAY: { max_players: Math.min(Math.max(input.maxPlayers, 1), 64) },
+    NETWORK: {
+      cluster_name: clean(input.sessionName),
+      ...(input.serverPassword ? { cluster_password: clean(input.serverPassword) } : {}),
+    },
+    MISC: {},
+    SHARD: { shard_enabled: "true", bind_ip: "127.0.0.1", master_ip: "127.0.0.1", master_port: 10888 },
+  };
+  for (const def of input.catalog.settings) {
+    const raw = input.config.values?.[def.key] ?? def.default;
+    if (raw === undefined || raw === null || raw === "") continue;
+    const [section, key] = (def.emitAs ?? "").split(".");
+    if (!section || !key) continue;
+    (sections[section] ??= {})[key] =
+      typeof raw === "boolean" ? (raw ? "true" : "false") : (raw as string | number);
+  }
+  return (
+    Object.entries(sections)
+      .filter(([, kv]) => Object.keys(kv).length > 0)
+      .map(
+        ([nm, kv]) =>
+          `[${nm}]\n` +
+          Object.entries(kv)
+            .map(([k, v]) => `${k} = ${v}`)
+            .join("\n"),
+      )
+      .join("\n\n") + "\n"
+  );
 }
 
 function buildOpenttdSpec(input: RuntimeSpecInput): Docker.ContainerCreateOptions {

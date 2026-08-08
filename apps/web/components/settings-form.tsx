@@ -175,6 +175,12 @@ const CS2_GROUPS: SettingGroup[] = [
   { id: "logging", label: "Logging", Icon: Wrench, cats: ["Logging"] },
 ];
 
+const DST_GROUPS: SettingGroup[] = [
+  { id: "gameplay", label: "Gameplay", Icon: Swords, cats: ["Gameplay"] },
+  { id: "network", label: "Network", Icon: Network, cats: ["Network"] },
+  { id: "misc", label: "Misc", Icon: Wrench, cats: ["Misc"] },
+];
+
 const VALHEIM_GROUPS: SettingGroup[] = [
   { id: "version", label: "Version", Icon: GitBranch, cats: ["Version"] },
   { id: "world", label: "World", Icon: MapIcon, cats: ["World"] },
@@ -262,7 +268,9 @@ export function SettingsForm({
                       ? ZOMBOID_GROUPS
                       : game === Game.CS2
                         ? CS2_GROUPS
-                        : ARK_GROUPS;
+                        : game === Game.DST
+                          ? DST_GROUPS
+                          : ARK_GROUPS;
   const MAPPED_CATS = new Set(GROUPS.flatMap((g) => g.cats));
 
   // A map-specific category is shown only when the server's map matches it.

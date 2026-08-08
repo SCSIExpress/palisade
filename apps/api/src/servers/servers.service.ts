@@ -173,6 +173,8 @@ export const READY_RE_BY_GAME: Record<Game, RegExp> = {
   // cs2 logs 'Host activate: Loading (de_dust2)' when the map spins up; Steam
   // logon lines appear slightly later depending on token/anonymous mode.
   [Game.CS2]: /Host activate: Loading|Connection to Steam servers successful/i,
+  // DST master shard logs "Sim paused" once worldgen finishes and it idles ready.
+  [Game.DST]: /Sim paused|Server registered/i,
 };
 
 /** The "server is now joinable" log-marker regex for a game. */

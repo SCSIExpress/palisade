@@ -43,4 +43,5 @@ export const GAME_VERSION_PINNING: Record<Game, VersionPinKind> = {
   [Game.RUST]: "none",
   [Game.BEAMMP]: "none",
   [Game.CS2]: "none", // the image runs a SteamCMD update on every start — restart = update
+  [Game.DST]: "none", // jamesits updates the server on start
 };
