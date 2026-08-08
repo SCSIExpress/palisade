@@ -4,7 +4,10 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { join } from "node:path";
 import * as cron from "node-cron";
+import { EventType } from "@ark/shared";
 import { loadEnv } from "../config/env";
+import { EventsService } from "../events/events.service";
+import { ManagerSettingsService } from "../manager-settings/manager-settings.service";
 
 const execFileP = promisify(execFile);
 
@@ -25,8 +28,16 @@ const KEEP = 14;
 export class DbBackupService implements OnModuleInit {
   private readonly logger = new Logger(DbBackupService.name);
 
-  onModuleInit(): void {
-    cron.schedule("0 4 * * *", () => void this.run());
+  constructor(
+    private readonly events: EventsService,
+    private readonly settings: ManagerSettingsService,
+  ) {}
+
+  async onModuleInit(): Promise<void> {
+    // Nightly at 04:00 in the user's configured timezone (falls back to the
+    // container's TZ when unset) — matches the scheduler's cron handling.
+    const timezone = await this.settings.getTimezone().catch(() => undefined);
+    cron.schedule("0 4 * * *", () => void this.run(), timezone ? { timezone } : undefined);
     void this.run(); // one on boot, so a fresh deploy always has a snapshot
   }
 
@@ -70,6 +81,14 @@ export class DbBackupService implements OnModuleInit {
       this.logger.log(`Manager DB backed up to ${dest}${viaSqlite ? " (integrity ok)" : ""}`);
     } catch (err) {
       this.logger.warn(`Manager DB backup failed: ${(err as Error).message}`);
+      // Surface it — a silently failing DB backup is exactly the kind of thing
+      // you only discover the day you need the snapshot.
+      await this.events
+        .emit({
+          type: EventType.Warning,
+          message: `Panel database backup FAILED: ${(err as Error).message}`,
+        })
+        .catch(() => undefined);
     }
   }
 
