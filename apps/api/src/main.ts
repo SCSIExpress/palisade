@@ -37,6 +37,11 @@ async function bootstrap() {
     credentials: true,
   });
 
+  // Without this, SIGTERM (docker stop / array shutdown) kills the process with
+  // NO lifecycle hooks — running game servers never get their last-second world
+  // save (ServersService.onApplicationShutdown) and Prisma never disconnects.
+  app.enableShutdownHooks();
+
   await app.listen(env.API_PORT, "0.0.0.0");
   new Logger("Bootstrap").log(
     `Palisade API listening on :${env.API_PORT} (${env.NODE_ENV})`,

@@ -150,6 +150,27 @@ export class DockerService {
     }));
   }
 
+  /**
+   * Running server containers with their writable-layer size (SizeRw) — the
+   * bytes written INSIDE the container fs (docker.img on Unraid), which for our
+   * bind-mounted games should stay small. Size computation makes the daemon
+   * stat the layer, so callers should keep this to an infrequent sweep.
+   */
+  async listServerContainerSizes(): Promise<
+    Array<{ containerId: string; serverId: string | null; sizeRw: number }>
+  > {
+    const list = (await this.docker.listContainers({
+      filters: { label: ["ark.role=server"] },
+      // dockerode types omit it, but the engine API supports ?size=1 on list.
+      ...({ size: true } as object),
+    })) as Array<Docker.ContainerInfo & { SizeRw?: number }>;
+    return list.map((c) => ({
+      containerId: c.Id,
+      serverId: (c.Labels ?? {})["ark.serverId"] || null,
+      sizeRw: c.SizeRw ?? 0,
+    }));
+  }
+
   /** One-shot (non-follow) log grab, for scanning readiness during reconcile. */
   async tailLogs(id: string, tail = 2000): Promise<string> {
     const buf = (await this.docker.getContainer(id).logs({

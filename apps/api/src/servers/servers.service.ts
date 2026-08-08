@@ -5,6 +5,7 @@ import {
   Logger,
   NotFoundException,
   type OnApplicationBootstrap,
+  type OnApplicationShutdown,
 } from "@nestjs/common";
 import type Docker from "dockerode";
 import { mkdir, writeFile, rm, cp, chmod, chown, stat, readFile, readdir } from "node:fs/promises";
@@ -220,7 +221,7 @@ const startupDeadlineMs = (game: Game): number =>
 const DISK_RUNTIME_FLOOR_MB = 2048;
 
 @Injectable()
-export class ServersService implements OnApplicationBootstrap {
+export class ServersService implements OnApplicationBootstrap, OnApplicationShutdown {
   private readonly logger = new Logger(ServersService.name);
   private readonly logStops = new Map<string, () => void>();
   private readonly crashTimes = new Map<string, number[]>();
@@ -299,6 +300,72 @@ export class ServersService implements OnApplicationBootstrap {
     await this.reconcile().catch((e) =>
       this.logger.error(`Startup reconcile failed: ${(e as Error).message}`),
     );
+    // Health-transition notifier: healthNote is computed on read, so nothing
+    // would announce a server going Unhealthy (or recovering) unless someone
+    // happens to be looking. Sweep every minute and emit Warning events on the
+    // transitions — the events bus forwards them to notification targets.
+    const healthTimer = setInterval(() => void this.sweepHealthTransitions(), 60_000);
+    healthTimer.unref?.();
+    // Layer-bloat watchdog: a game image silently writing into the container's
+    // writable layer (wrong bind permissions/path) fills docker.img until it
+    // ruptures. Sweep sizes every 30 min and warn once per container.
+    const bloatTimer = setInterval(() => void this.sweepLayerBloat(), 30 * 60_000);
+    bloatTimer.unref?.();
+  }
+
+  /** Last announced health note per server (null = healthy) — transition memory. */
+  private readonly lastHealthNote = new Map<string, string | null>();
+
+  private async sweepHealthTransitions(): Promise<void> {
+    const running = await this.prisma.server
+      .findMany({ where: { state: ServerState.Running }, select: { id: true, name: true } })
+      .catch(() => []);
+    const seen = new Set<string>();
+    for (const s of running) {
+      seen.add(s.id);
+      const note = this.healthNoteFor(s.id);
+      const prev = this.lastHealthNote.get(s.id) ?? null;
+      if (note && !prev) {
+        await this.events.emit({
+          type: EventType.Warning,
+          message: `Server is UNHEALTHY: ${note}`,
+          serverId: s.id,
+        });
+      } else if (!note && prev) {
+        await this.events.emit({
+          type: EventType.Warning,
+          message: "Server recovered — healthy again.",
+          serverId: s.id,
+        });
+      }
+      this.lastHealthNote.set(s.id, note);
+    }
+    // Servers that left Running: drop their memory so the next run starts clean
+    // (a crash/stop already produces its own louder events).
+    for (const id of [...this.lastHealthNote.keys()]) {
+      if (!seen.has(id)) this.lastHealthNote.delete(id);
+    }
+  }
+
+  /** Writable-layer size above which we suspect the image is writing game data
+   *  inside docker.img instead of its bind mount (the CS2 failure class). */
+  private static readonly LAYER_BLOAT_LIMIT_BYTES = 2 * 1024 ** 3;
+  /** Containers already warned about this run — one warning per offender. */
+  private readonly bloatWarned = new Set<string>();
+
+  private async sweepLayerBloat(): Promise<void> {
+    const sizes = await this.docker.listServerContainerSizes().catch(() => []);
+    for (const c of sizes) {
+      if (!c.sizeRw || c.sizeRw < ServersService.LAYER_BLOAT_LIMIT_BYTES) continue;
+      if (this.bloatWarned.has(c.containerId)) continue;
+      this.bloatWarned.add(c.containerId);
+      const gib = (c.sizeRw / 1024 ** 3).toFixed(1);
+      await this.events.emit({
+        type: EventType.Warning,
+        message: `Container writable layer is ${gib} GiB and growing inside docker.img — the game image may be writing data OUTSIDE its bind mount (permissions/path issue). Check the instance folder ownership; docker.img can fill and take down all containers.`,
+        serverId: c.serverId ?? undefined,
+      });
+    }
   }
 
   /**
@@ -1422,6 +1489,34 @@ export class ServersService implements OnApplicationBootstrap {
   async restart(id: string): Promise<void> {
     await this.stop(id).catch(() => undefined);
     await this.start(id, { force: true });
+  }
+
+  /**
+   * The manager is going down (docker stop, deploy, array shutdown). Fire a
+   * best-effort world-save at every RUNNING server so a host reboot costs at
+   * most a few seconds of progress instead of everything since the last
+   * autosave. Bounded to ~8 s total — Docker's default stop grace is 10 s and
+   * an expired grace means SIGKILL for us AND no save at all.
+   */
+  async onApplicationShutdown(signal?: string): Promise<void> {
+    const running = await this.prisma.server
+      .findMany({ where: { state: ServerState.Running }, select: { id: true, name: true } })
+      .catch(() => []);
+    if (running.length === 0) return;
+    this.logger.log(
+      `${signal ?? "shutdown"}: issuing world-save to ${running.length} running server(s)…`,
+    );
+    await Promise.race([
+      Promise.allSettled(
+        running.map((s) =>
+          this.rcon.saveWorld(s.id).then(
+            () => this.logger.log(`shutdown save ok: ${s.name}`),
+            () => undefined, // no RCON / no save command — the game's own autosave covers it
+          ),
+        ),
+      ),
+      new Promise((resolve) => setTimeout(resolve, 8_000).unref?.()),
+    ]);
   }
 
   // ── Monitors: readiness + crash watchdog ────────────────────────────────────
