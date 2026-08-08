@@ -2394,6 +2394,8 @@ export function renderDstClusterIni(input: {
   serverPassword: string;
   maxPlayers: number;
   gamePort: number;
+  /** Shard-auth secret shared by master+caves (both read this same file). Without it DST disables shard mode and caves never joins. */
+  clusterKey?: string;
   catalog: SettingsCatalog;
   config: ServerConfigValues;
 }): string {
@@ -2405,7 +2407,13 @@ export function renderDstClusterIni(input: {
       ...(input.serverPassword ? { cluster_password: clean(input.serverPassword) } : {}),
     },
     MISC: {},
-    SHARD: { shard_enabled: "true", bind_ip: "127.0.0.1", master_ip: "127.0.0.1", master_port: 10888 },
+    SHARD: {
+      shard_enabled: "true",
+      bind_ip: "127.0.0.1",
+      master_ip: "127.0.0.1",
+      master_port: 10888,
+      ...(input.clusterKey ? { cluster_key: clean(input.clusterKey) } : {}),
+    },
   };
   for (const def of input.catalog.settings) {
     const raw = input.config.values?.[def.key] ?? def.default;
@@ -2436,7 +2444,12 @@ export function renderDstClusterIni(input: {
  * shards would race for the same default port. We own these files instead,
  * wired to the server's editable port block.
  */
-export function renderDstShardInis(ports: { game: number; rawSocket: number; query: number }): {
+export function renderDstShardInis(
+  ports: { game: number; rawSocket: number; query: number },
+  // Shard ids the game assigned on a previous boot (it appends `id = N` to
+  // server.ini). Preserve them so save/portal linkage survives our rewrites.
+  ids?: { master?: string; caves?: string },
+): {
   master: string;
   caves: string;
 } {
@@ -2446,13 +2459,13 @@ export function renderDstShardInis(ports: { game: number; rawSocket: number; que
       .join("\n\n") + "\n";
   return {
     master: shard({
-      SHARD: { is_master: "true" },
+      SHARD: { is_master: "true", ...(ids?.master ? { id: ids.master } : {}) },
       NETWORK: { server_port: ports.game },
       STEAM: { master_server_port: ports.query, authentication_port: 8766 },
       ACCOUNT: { encode_user_path: "true" },
     }),
     caves: shard({
-      SHARD: { is_master: "false", name: "Caves" },
+      SHARD: { is_master: "false", name: "Caves", ...(ids?.caves ? { id: ids.caves } : {}) },
       NETWORK: { server_port: ports.rawSocket },
       STEAM: { master_server_port: ports.query + 1, authentication_port: 8767 },
       ACCOUNT: { encode_user_path: "true" },

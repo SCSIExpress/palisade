@@ -313,11 +313,20 @@ export class ServerConfigWriter {
       const dir = join(env.DATA_DIR, "instances", server.id, "DoNotStarveTogether", "Cluster_1");
       await mkdir(join(dir, "Master"), { recursive: true });
       await mkdir(join(dir, "Caves"), { recursive: true });
-      const shards = renderDstShardInis({
-        game: server.gamePort,
-        rawSocket: server.rawSocketPort,
-        query: server.queryPort,
-      });
+      // The game appends its generated `id = N` to each shard ini; carry it
+      // over so save/portal linkage survives our fresh render.
+      const shardId = async (sub: string) => {
+        const prev = await readFile(join(dir, sub, "server.ini"), "utf8").catch(() => "");
+        return /^id\s*=\s*(\d+)\s*$/m.exec(prev)?.[1];
+      };
+      const shards = renderDstShardInis(
+        {
+          game: server.gamePort,
+          rawSocket: server.rawSocketPort,
+          query: server.queryPort,
+        },
+        { master: await shardId("Master"), caves: await shardId("Caves") },
+      );
       await writeFile(join(dir, "Master", "server.ini"), shards.master, "utf8");
       await writeFile(join(dir, "Caves", "server.ini"), shards.caves, "utf8");
       const ini = renderDstClusterIni({
@@ -325,6 +334,9 @@ export class ServerConfigWriter {
         serverPassword: server.serverPasswordEnc ? this.crypto.decrypt(server.serverPasswordEnc) : "",
         maxPlayers: server.maxPlayers,
         gamePort: server.gamePort,
+        // Loopback-only shard auth (bind_ip 127.0.0.1) — the server id is
+        // unguessable enough and keeps the key stable across restarts.
+        clusterKey: server.id,
         catalog: this.catalog.getCatalog(Game.DST),
         config: JSON.parse(server.configJson) as ServerConfigValues,
       });

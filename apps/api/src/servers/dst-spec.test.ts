@@ -106,3 +106,30 @@ describe("renderDstShardInis", () => {
     expect(caves).toMatch(/^encode_user_path = true$/m);
   });
 });
+
+describe("DST shard wiring", () => {
+  it("emits cluster_key so shard mode actually enables", async () => {
+    const { renderDstClusterIni } = await import("./runtime-spec");
+    const ini = renderDstClusterIni({
+      sessionName: "s",
+      serverPassword: "",
+      maxPlayers: 6,
+      gamePort: 10999,
+      clusterKey: "srv-abc123",
+      catalog: DST_CATALOG,
+      config: { values: {} } as ServerConfigValues,
+    });
+    expect(ini).toMatch(/^cluster_key = srv-abc123$/m);
+    expect(ini).toMatch(/^shard_enabled = true$/m);
+  });
+
+  it("preserves game-assigned shard ids across rewrites", async () => {
+    const { renderDstShardInis } = await import("./runtime-spec");
+    const { master, caves } = renderDstShardInis(
+      { game: 10999, rawSocket: 11000, query: 12346 },
+      { caves: "851517109" },
+    );
+    expect(caves).toMatch(/^id = 851517109$/m);
+    expect(master).not.toMatch(/^id =/m);
+  });
+});
