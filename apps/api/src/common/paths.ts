@@ -118,6 +118,9 @@ export const LocalPaths = {
         // Configs (autoexec/server cfgs) + recorded CSTV demos; the ~60 GB game
         // install is skipped (SteamCMD restores it on start).
         return ["game/csgo/cfg", "game/csgo/addons"];
+      case Game.DST:
+        // The whole cluster: cluster.ini + token + both shards' saves/worldgen.
+        return ["DoNotStarveTogether/Cluster_1"];
       default:
         return ["ShooterGame/Saved"]; // ASA (POK)
     }

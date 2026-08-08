@@ -26,7 +26,7 @@ player administration, and even your router's port-forwards.
 > with `/var/run/docker.sock` and a data volume mounted; see the template in
 > [`unraid/palisade.xml`](unraid/palisade.xml) for the full env/mount list.
 
-**Supported games (25):**
+**Supported games (26):**
 
 | Game | Runtime | Console | Mods |
 |---|---|---|---|
@@ -55,6 +55,7 @@ player administration, and even your router's port-forwards.
 | BeamNG.drive (BeamMP) | native | — | client-mod + Lua plugin folders |
 | OpenTTD | native (ich777) | in-game console | — (NewGRFs via in-game content) |
 | Counter-Strike 2 | native (joedwards32) | RCON | Workshop maps/collections (by ID) |
+| Don't Starve Together | native (jamesits) | — (in-game console) | — (Workshop mods via cluster files) |
 
 [^pal]: Palworld runs the **native Linux** server, so mods are `.pak` content mods plus
     Lua/Blueprint mods loaded by UE4SS. Official UE4SS releases are Windows-only — there is no

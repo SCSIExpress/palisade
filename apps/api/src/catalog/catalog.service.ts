@@ -24,6 +24,7 @@ import { RUST_CATALOG } from "./rust.catalog";
 import { BEAMMP_CATALOG } from "./beammp.catalog";
 import { OPENTTD_CATALOG } from "./openttd.catalog";
 import { CS2_CATALOG } from "./cs2.catalog";
+import { DST_CATALOG } from "./dst.catalog";
 import { serializeGameIni, serializeGameUserSettings } from "./ini-serializer";
 
 @Injectable()
@@ -54,6 +55,7 @@ export class CatalogService {
     if (game === Game.BEAMMP) return BEAMMP_CATALOG;
     if (game === Game.OPENTTD) return OPENTTD_CATALOG;
     if (game === Game.CS2) return CS2_CATALOG;
+    if (game === Game.DST) return DST_CATALOG;
     throw new NotFoundException(`Unknown game: ${game}`);
   }
 

@@ -90,6 +90,7 @@ const ACTIONS_BY_GAME: Record<Game, PlayerAction[]> = {
   [Game.BEAMMP]: [], // stdin console only; joins visible in logs
   [Game.OPENTTD]: [], // no programmatic admin (in-game console only)
   [Game.CS2]: ["kick", "ban"], // Source RCON: kickid / banid
+  [Game.DST]: [], // no RCON — admin via in-game console/listadminmoderation
 };
 
 const CAPTURE_NOTES: Partial<Record<Game, string>> = {

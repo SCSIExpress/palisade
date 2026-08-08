@@ -29,6 +29,7 @@ import {
   BEAMMP_OFFICIAL_MAPS,
   OPENTTD_OFFICIAL_MAPS,
   CS2_OFFICIAL_MAPS,
+  DST_OFFICIAL_MAPS,
   mapLabel,
   type ServerSummary,
 } from "@ark/shared";
@@ -60,6 +61,7 @@ const MAPS_FOR: Record<Game, readonly string[]> = {
   [Game.BEAMMP]: BEAMMP_OFFICIAL_MAPS,
   [Game.OPENTTD]: OPENTTD_OFFICIAL_MAPS,
   [Game.CS2]: CS2_OFFICIAL_MAPS,
+  [Game.DST]: DST_OFFICIAL_MAPS,
 };
 
 /**

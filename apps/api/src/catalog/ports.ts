@@ -170,6 +170,9 @@ export const OPENTTD_PORTS: PortSet = { game: 3979, rawSocket: 3980, query: 3979
 // SourceTV/CSTV on 27020/udp (rawSocket slot). RCON on a separate TCP port via the
 // image's CS2_RCON_PORT proxy so the manager's console doesn't share the game port.
 export const CS2_PORTS: PortSet = { game: 27015, rawSocket: 27020, query: 27015, rcon: 27025 };
+// DST: master shard 10999/udp, caves shard 11000/udp (rawSocket slot), Steam
+// authentication 12346/udp + 12347/udp (query slot + its neighbour). No RCON.
+export const DST_PORTS: PortSet = { game: 10999, rawSocket: 11000, query: 12346, rcon: 0 };
 // Wine Palworld: shifted off native Palworld's default block so both can be installed.
 export const PALWORLD_WINE_PORTS: PortSet = { game: 8311, rawSocket: 8312, query: 8313, rcon: 8314 };
 
@@ -297,6 +300,13 @@ export function forwardSpec(game: Game, ports: PortSet): ForwardPort[] {
         { port: ports.game, proto: "udp", label: "game + query (udp)" },
         { port: ports.rawSocket, proto: "udp", label: "CSTV spectator" },
       ];
+    case Game.DST:
+      return [
+        { port: ports.game, proto: "udp", label: "master shard" },
+        { port: ports.rawSocket, proto: "udp", label: "caves shard" },
+        { port: ports.query, proto: "udp", label: "steam auth" },
+        { port: ports.query + 1, proto: "udp", label: "steam master" },
+      ];
     default:
       // ARK family + Conan: game + raw socket + query, all UDP.
       return [
@@ -330,5 +340,6 @@ export function portsFor(game: Game): PortSet {
   if (game === Game.PALWORLD_WINE) return PALWORLD_WINE_PORTS;
   if (game === Game.OPENTTD) return OPENTTD_PORTS;
   if (game === Game.CS2) return CS2_PORTS;
+  if (game === Game.DST) return DST_PORTS;
   return FIXED_PORTS;
 }

@@ -187,7 +187,7 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
             ? new Set<Tab>(["Console", "Mods"]) // no RCON, no mod support
             : server.game === Game.VRISING || server.game === Game.FACTORIO || server.game === Game.RUST || server.game === Game.CS2
               ? new Set<Tab>(["Mods"]) // RCON console, but no mod browser
-              : server.game === Game.SOTF || server.game === Game.SATISFACTORY || server.game === Game.LIF || server.game === Game.ATS || server.game === Game.ETS2 || server.game === Game.CORE_KEEPER || server.game === Game.TERRARIA || server.game === Game.BEAMMP || server.game === Game.OPENTTD
+              : server.game === Game.SOTF || server.game === Game.SATISFACTORY || server.game === Game.LIF || server.game === Game.ATS || server.game === Game.ETS2 || server.game === Game.CORE_KEEPER || server.game === Game.TERRARIA || server.game === Game.BEAMMP || server.game === Game.OPENTTD || server.game === Game.DST
                 ? new Set<Tab>(["Console", "Mods"]) // no RCON/console, no mod browser
                 : new Set<Tab>();
   // Files exposes raw configs (join/admin passwords, tokens) — operator+ only,
@@ -525,9 +525,10 @@ function Overview({ server, onChanged }: { server: ServerSummary; onChanged: () 
   const isBeammp = server.game === Game.BEAMMP;
   const isOpenttd = server.game === Game.OPENTTD;
   const isCs2 = server.game === Game.CS2;
-  const noQuery = isMc || isBedrock || isSdtd || isZomboid || isSatisfactory || isCoreKeeper || isTerraria || isFactorio || isBeammp || isOpenttd || isCs2; // Valheim/Enshrouded/V Rising have a real query port; Zomboid/Satisfactory/OpenTTD/CS2 answer queries on the game port
-  const noRcon = isIcarus || isBedrock || isValheim || isSdtd || isEnshrouded || isSotf || isSatisfactory || isLif || isAts || isCoreKeeper || isTerraria || isBeammp || isOpenttd; // 7DTD's console is telnet; OpenTTD's is in-game only
-  const noMods = isIcarus || isBedrock || isValheim || isSdtd || isEnshrouded || isVRising || isSotf || isSatisfactory || isLif || isAts || isCoreKeeper || isTerraria || isFactorio || isRust || isBeammp || isOpenttd || isCs2;
+  const isDst = server.game === Game.DST;
+  const noQuery = isMc || isBedrock || isSdtd || isZomboid || isSatisfactory || isCoreKeeper || isTerraria || isFactorio || isBeammp || isOpenttd || isCs2 || isDst; // Valheim/Enshrouded/V Rising have a real query port; Zomboid/Satisfactory/OpenTTD/CS2 answer queries on the game port; DST queries go through Klei's lobby
+  const noRcon = isIcarus || isBedrock || isValheim || isSdtd || isEnshrouded || isSotf || isSatisfactory || isLif || isAts || isCoreKeeper || isTerraria || isBeammp || isOpenttd || isDst; // 7DTD's console is telnet; OpenTTD's + DST's are in-game only
+  const noMods = isIcarus || isBedrock || isValheim || isSdtd || isEnshrouded || isVRising || isSotf || isSatisfactory || isLif || isAts || isCoreKeeper || isTerraria || isFactorio || isRust || isBeammp || isOpenttd || isCs2 || isDst;
   const row = (k: string, v: string): [string, string] => [k, v];
   const rows: [string, string][] = [
     row("Game", server.game),

@@ -95,6 +95,9 @@ export const IMAGES: Record<Game, string> = {
   // joedwards32/cs2 — the de-facto CS2 server image. Env-driven (CS2_*), runs
   // SteamCMD install/update on every start, unprivileged uid 1000 ("steam").
   [Game.CS2]: "joedwards32/cs2:latest",
+  // jamesits/dst-server — installs/updates DST via SteamCMD on start. Volume-driven:
+  // the cluster (config + token + saves) lives under /data/DoNotStarveTogether.
+  [Game.DST]: "jamesits/dst-server:latest",
 };
 
 /** POK keeps all instance data (install + saves + config) under this path. */
@@ -225,6 +228,8 @@ export const BEAMMP_SERVER_MODS_DIR = "/beammp/Resources/Server";
 export const OPENTTD_DATA_DIR = "/serverdata";
 /** joedwards32/cs2 keeps the whole install + configs under this volume. */
 export const CS2_DATA_DIR = "/home/steam/cs2-dedicated";
+/** jamesits/dst-server volume; the cluster lives at DoNotStarveTogether/Cluster_1. */
+export const DST_DATA_DIR = "/data";
 
 /**
  * The uid/gid each image runs the server as. Neither chowns its mounts fully
@@ -257,6 +262,7 @@ export const SERVER_UID: Record<Game, number> = {
   [Game.BEAMMP]: 0, // rouhim runs as root (mod dirs world-writable per its docs)
   [Game.OPENTTD]: 99, // ich777 wrapper (UID/GID env = PUID/PGID)
   [Game.CS2]: 1000, // the image's fixed unprivileged "steam" user
+  [Game.DST]: 0, // the image manages its own in-container user; bind stays root-writable
 };
 export const SERVER_GID: Record<Game, number> = {
   [Game.ASA]: 7777,
@@ -284,4 +290,5 @@ export const SERVER_GID: Record<Game, number> = {
   [Game.BEAMMP]: 0,
   [Game.OPENTTD]: 100,
   [Game.CS2]: 1000,
+  [Game.DST]: 0,
 };
