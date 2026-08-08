@@ -12,8 +12,10 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     // long-running service on SQLite. synchronous=NORMAL is the standard WAL
     // pairing (fsync on checkpoint, not every commit); busy_timeout stops
     // "database is locked" errors under concurrent access bursts.
+    // Both of these pragmas RETURN a row, so they must go through $queryRaw —
+    // $executeRaw rejects result-returning statements on SQLite.
     const [mode] = await this.$queryRawUnsafe<{ journal_mode: string }[]>("PRAGMA journal_mode=WAL;");
-    await this.$executeRawUnsafe("PRAGMA busy_timeout=5000;");
+    await this.$queryRawUnsafe("PRAGMA busy_timeout=5000;");
     await this.$executeRawUnsafe("PRAGMA synchronous=NORMAL;");
     this.logger.log(`Connected to SQLite database (journal_mode=${mode?.journal_mode ?? "?"})`);
   }
