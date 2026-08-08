@@ -9,7 +9,14 @@ import { UsersCard } from "@/components/users-card";
 
 type SettingsView = Record<string, string | boolean>;
 
+const TABS = ["General", "Integrations", "Backups", "Users", "Notifications", "About"] as const;
+type Tab = (typeof TABS)[number];
+/** Tabs whose fields are saved by the shared Save button (the other tabs' cards
+ *  save themselves). */
+const SAVABLE_TABS = new Set<Tab>(["General", "Integrations", "Backups"]);
+
 export default function SettingsPage() {
+  const [tab, setTab] = useState<Tab>("General");
   const [view, setView] = useState<SettingsView>({});
   const [timezone, setTimezone] = useState("");
   const [curseForgeApiKey, setCurseForgeApiKey] = useState("");
@@ -40,6 +47,20 @@ export default function SettingsPage() {
       .catch(() => undefined);
   };
   useEffect(load, []);
+
+  // Keep the active tab in the URL (?tab=backups) so a refresh lands back on the
+  // same tab — same pattern as the server page.
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search).get("tab");
+    const found = p && TABS.find((t) => t.toLowerCase() === p.toLowerCase());
+    if (found) setTab(found);
+  }, []);
+  const changeTab = (t: Tab) => {
+    setTab(t);
+    const u = new URL(window.location.href);
+    u.searchParams.set("tab", t.toLowerCase());
+    window.history.replaceState(null, "", u);
+  };
 
   const configured = (key: string) => view[key] === true || typeof view[key] === "string";
 
@@ -104,164 +125,187 @@ export default function SettingsPage() {
         <KeyRound className="h-5 w-5 text-ark-accent" /> Settings
       </h1>
 
-      <div className="card space-y-5">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-ark-accent2">
-          Mod browser API keys
-        </h2>
-
-        <SecretField
-          label="CurseForge API key (ASA mod browser)"
-          value={curseForgeApiKey}
-          onChange={setCurseForgeApiKey}
-          configured={configured("curseforge_api_key")}
-        />
-        <SecretField
-          label="Steam Web API key (ASE Workshop browser)"
-          value={steamWebApiKey}
-          onChange={setSteamWebApiKey}
-          configured={configured("steam_web_api_key")}
-        />
-        <div className="space-y-2 border-t border-ark-border/60 pt-4">
-          <SecretField
-            label="SteamGridDB API key (cover art + banners)"
-            value={steamGridDbApiKey}
-            onChange={setSteamGridDbApiKey}
-            configured={configured("steamgriddb_api_key")}
-          />
-          <p className="text-xs text-slate-500">
-            Adds cover art to server cards and a banner to each server page. Free key from{" "}
-            <a
-              href="https://www.steamgriddb.com/profile/preferences/api"
-              target="_blank"
-              rel="noreferrer"
-              className="text-ark-accent hover:underline"
-            >
-              steamgriddb.com
-            </a>
-            . Save the key first, then fetch — art is cached, so this is a one-time pull.
-          </p>
-          <div className="flex items-center gap-2">
-            <button type="button" className="btn-secondary" onClick={fetchArtwork}>
-              <Send className="h-4 w-4" /> Fetch artwork
-            </button>
-            {artMsg && <span className="text-sm text-slate-400">{artMsg}</span>}
-          </div>
-        </div>
-      </div>
-
-      <UsersCard />
-
-      <NotificationTargetsCard />
-
-      <div className="card space-y-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-ark-accent2">
-          pfSense port forwarding
-        </h2>
-        <p className="text-xs text-slate-500">
-          With these set, each server&apos;s Overview gets one-click WAN port-forward management. Requires
-          the free{" "}
-          <a
-            href="https://pfrest.org/"
-            target="_blank"
-            rel="noreferrer"
-            className="text-ark-accent hover:underline"
+      <div className="flex flex-wrap gap-1 border-b border-ark-border">
+        {TABS.map((t) => (
+          <button
+            key={t}
+            onClick={() => changeTab(t)}
+            className={`px-4 py-2 text-sm ${
+              tab === t ? "border-b-2 border-ark-accent text-slate-100" : "text-slate-400"
+            }`}
           >
-            pfSense REST API package
-          </a>{" "}
-          on your router (System → REST API → generate an API key). Works with any pfSense — nothing is
-          tied to a specific network.
-        </p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <label className="label">pfSense host / IP</label>
-            <input
-              className="input"
-              placeholder="e.g. 192.168.1.1 (your router)"
-              value={pfsenseHost}
-              onChange={(e) => setPfsenseHost(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="label">Forward to (this machine&apos;s LAN IP)</label>
-            <input
-              className="input"
-              placeholder="e.g. 192.168.1.50 (this server box)"
-              value={pfsenseTargetIp}
-              onChange={(e) => setPfsenseTargetIp(e.target.value)}
-            />
-          </div>
-        </div>
-        <SecretField
-          label="pfSense REST API key"
-          value={pfsenseApiKey}
-          onChange={setPfsenseApiKey}
-          configured={configured("pfsense_api_key")}
-        />
-        <div>
-          <button type="button" className="btn-secondary" onClick={testPfsense}>
-            <Send className="h-4 w-4" /> Test connection
+            {t}
           </button>
-          {pfTestMsg && <p className="mt-2 text-sm text-slate-400">{pfTestMsg}</p>}
-        </div>
+        ))}
       </div>
 
-      <div className="card space-y-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-ark-accent2">Backups</h2>
-        <div>
-          <label className="label">Keep last N backups (per server)</label>
-          <input
-            type="number"
-            min={1}
-            max={500}
-            className="input w-32"
-            value={backupKeep}
-            onChange={(e) => setBackupKeep(e.target.value)}
-          />
-          <p className="mt-1 text-xs text-slate-500">
-            Older snapshots beyond this count are deleted automatically. Default 10. Each backup is
-            just the live world, players, and config (ARK&apos;s own dated copies + logs are skipped).
-          </p>
-        </div>
-      </div>
+      {tab === "General" && (
+        <>
+          <div className="card space-y-4">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-ark-accent2">General</h2>
+            <div>
+              <label className="label">Timezone (scheduler)</label>
+              <TimezoneSelect value={timezone} onChange={setTimezone} />
+              <p className="mt-1 text-xs text-slate-500">
+                Used for schedule times. Defaults to this device&apos;s timezone.
+              </p>
+            </div>
+          </div>
+          <div className="card space-y-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-ark-accent2">Start guard</h2>
+            <label className="flex items-start gap-3 text-sm text-slate-200">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4"
+                checked={autoStop}
+                onChange={(e) => setAutoStop(e.target.checked)}
+              />
+              <span>
+                Auto-stop a running server to free RAM
+                <span className="mt-1 block text-xs font-normal text-slate-500">
+                  When starting a server would exceed free memory, offer to back up and shut down a running one,
+                  then start the new one. You still confirm first — with a single running server it&apos;s a quick
+                  warning. Off: a start that won&apos;t fit is just blocked with a warning.
+                </span>
+              </span>
+            </label>
+          </div>
+        </>
+      )}
 
-      <ReplicationCard />
+      {tab === "Integrations" && (
+        <>
+          <div className="card space-y-5">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-ark-accent2">
+              Mod browser API keys
+            </h2>
 
-      <div className="card space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-ark-accent2">Start guard</h2>
-        <label className="flex items-start gap-3 text-sm text-slate-200">
-          <input
-            type="checkbox"
-            className="mt-0.5 h-4 w-4"
-            checked={autoStop}
-            onChange={(e) => setAutoStop(e.target.checked)}
-          />
-          <span>
-            Auto-stop a running server to free RAM
-            <span className="mt-1 block text-xs font-normal text-slate-500">
-              When starting a server would exceed free memory, offer to back up and shut down a running one,
-              then start the new one. You still confirm first — with a single running server it&apos;s a quick
-              warning. Off: a start that won&apos;t fit is just blocked with a warning.
-            </span>
-          </span>
-        </label>
-      </div>
+            <SecretField
+              label="CurseForge API key (ASA mod browser)"
+              value={curseForgeApiKey}
+              onChange={setCurseForgeApiKey}
+              configured={configured("curseforge_api_key")}
+            />
+            <SecretField
+              label="Steam Web API key (ASE Workshop browser)"
+              value={steamWebApiKey}
+              onChange={setSteamWebApiKey}
+              configured={configured("steam_web_api_key")}
+            />
+            <div className="space-y-2 border-t border-ark-border/60 pt-4">
+              <SecretField
+                label="SteamGridDB API key (cover art + banners)"
+                value={steamGridDbApiKey}
+                onChange={setSteamGridDbApiKey}
+                configured={configured("steamgriddb_api_key")}
+              />
+              <p className="text-xs text-slate-500">
+                Adds cover art to server cards and a banner to each server page. Free key from{" "}
+                <a
+                  href="https://www.steamgriddb.com/profile/preferences/api"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-ark-accent hover:underline"
+                >
+                  steamgriddb.com
+                </a>
+                . Save the key first, then fetch — art is cached, so this is a one-time pull.
+              </p>
+              <div className="flex items-center gap-2">
+                <button type="button" className="btn-secondary" onClick={fetchArtwork}>
+                  <Send className="h-4 w-4" /> Fetch artwork
+                </button>
+                {artMsg && <span className="text-sm text-slate-400">{artMsg}</span>}
+              </div>
+            </div>
+          </div>
+          <div className="card space-y-4">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-ark-accent2">
+              pfSense port forwarding
+            </h2>
+            <p className="text-xs text-slate-500">
+              With these set, each server&apos;s Overview gets one-click WAN port-forward management. Requires
+              the free{" "}
+              <a
+                href="https://pfrest.org/"
+                target="_blank"
+                rel="noreferrer"
+                className="text-ark-accent hover:underline"
+              >
+                pfSense REST API package
+              </a>{" "}
+              on your router (System → REST API → generate an API key). Works with any pfSense — nothing is
+              tied to a specific network.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="label">pfSense host / IP</label>
+                <input
+                  className="input"
+                  placeholder="e.g. 192.168.1.1 (your router)"
+                  value={pfsenseHost}
+                  onChange={(e) => setPfsenseHost(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="label">Forward to (this machine&apos;s LAN IP)</label>
+                <input
+                  className="input"
+                  placeholder="e.g. 192.168.1.50 (this server box)"
+                  value={pfsenseTargetIp}
+                  onChange={(e) => setPfsenseTargetIp(e.target.value)}
+                />
+              </div>
+            </div>
+            <SecretField
+              label="pfSense REST API key"
+              value={pfsenseApiKey}
+              onChange={setPfsenseApiKey}
+              configured={configured("pfsense_api_key")}
+            />
+            <div>
+              <button type="button" className="btn-secondary" onClick={testPfsense}>
+                <Send className="h-4 w-4" /> Test connection
+              </button>
+              {pfTestMsg && <p className="mt-2 text-sm text-slate-400">{pfTestMsg}</p>}
+            </div>
+          </div>
+        </>
+      )}
 
-      <div className="card space-y-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-ark-accent2">General</h2>
-        <div>
-          <label className="label">Timezone (scheduler)</label>
-          <TimezoneSelect value={timezone} onChange={setTimezone} />
-          <p className="mt-1 text-xs text-slate-500">
-            Used for schedule times. Defaults to this device&apos;s timezone.
-          </p>
-        </div>
-      </div>
+      {tab === "Backups" && (
+        <>
+          <div className="card space-y-4">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-ark-accent2">Backups</h2>
+            <div>
+              <label className="label">Keep last N backups (per server)</label>
+              <input
+                type="number"
+                min={1}
+                max={500}
+                className="input w-32"
+                value={backupKeep}
+                onChange={(e) => setBackupKeep(e.target.value)}
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                Older snapshots beyond this count are deleted automatically. Default 10. Each backup is
+                just the live world, players, and config (ARK&apos;s own dated copies + logs are skipped).
+              </p>
+            </div>
+          </div>
+          <ReplicationCard />
+        </>
+      )}
 
-      <button className="btn-primary" onClick={save} disabled={busy}>
-        <Save className="h-4 w-4" /> {busy ? "Saving…" : saved ? "Saved ✓" : "Save settings"}
-      </button>
+      {tab === "Users" && <UsersCard />}
+      {tab === "Notifications" && <NotificationTargetsCard />}
+      {tab === "About" && <CreditsCard />}
 
-      <CreditsCard />
+      {SAVABLE_TABS.has(tab) && (
+        <button className="btn-primary" onClick={save} disabled={busy}>
+          <Save className="h-4 w-4" /> {busy ? "Saving…" : saved ? "Saved ✓" : "Save settings"}
+        </button>
+      )}
     </div>
   );
 }
