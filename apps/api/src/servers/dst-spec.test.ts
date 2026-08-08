@@ -133,3 +133,15 @@ describe("DST shard wiring", () => {
     expect(master).not.toMatch(/^id =/m);
   });
 });
+
+describe("DST worldgen overrides", () => {
+  it("gives the caves shard the cave preset", async () => {
+    const { DST_WORLDGEN_OVERRIDES } = await import("./runtime-spec");
+    expect(DST_WORLDGEN_OVERRIDES.caves).toContain('preset = "DST_CAVE"');
+    expect(DST_WORLDGEN_OVERRIDES.caves).toContain('task_set = "cave_default"');
+    expect(DST_WORLDGEN_OVERRIDES.master).toContain('preset = "SURVIVAL_TOGETHER"');
+    for (const lua of Object.values(DST_WORLDGEN_OVERRIDES)) {
+      expect(lua).toContain("override_enabled = true");
+    }
+  });
+});

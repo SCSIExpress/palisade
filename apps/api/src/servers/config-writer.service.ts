@@ -19,6 +19,7 @@ import {
   patchFactorioSettings,
   renderDstClusterIni,
   renderDstShardInis,
+  DST_WORLDGEN_OVERRIDES,
 } from "./runtime-spec";
 
 /** The subset of a Server row the config writers read. */
@@ -329,14 +330,24 @@ export class ServerConfigWriter {
       );
       await writeFile(join(dir, "Master", "server.ini"), shards.master, "utf8");
       await writeFile(join(dir, "Caves", "server.ini"), shards.caves, "utf8");
+      // Worldgen presets: seed once, never overwrite — users may customize
+      // these via the file manager, and rewriting after worldgen is moot.
+      for (const [sub, lua] of [
+        ["Master", DST_WORLDGEN_OVERRIDES.master],
+        ["Caves", DST_WORLDGEN_OVERRIDES.caves],
+      ] as const) {
+        const p = join(dir, sub, "worldgenoverride.lua");
+        await writeFile(p, lua, { encoding: "utf8", flag: "wx" }).catch(() => undefined);
+      }
       const ini = renderDstClusterIni({
         sessionName: server.name,
         serverPassword: server.serverPasswordEnc ? this.crypto.decrypt(server.serverPasswordEnc) : "",
         maxPlayers: server.maxPlayers,
         gamePort: server.gamePort,
-        // Loopback-only shard auth (bind_ip 127.0.0.1) — the server id is
-        // unguessable enough and keeps the key stable across restarts.
-        clusterKey: server.id,
+        // Loopback-only shard auth (bind_ip 127.0.0.1) — derived from the
+        // server id so it's stable across restarts; trimmed to the 20-char
+        // alphanumeric shape the image's known-good default key uses.
+        clusterKey: server.id.replace(/[^a-zA-Z0-9]/g, "").slice(-20),
         catalog: this.catalog.getCatalog(Game.DST),
         config: JSON.parse(server.configJson) as ServerConfigValues,
       });

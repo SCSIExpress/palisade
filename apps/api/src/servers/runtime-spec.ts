@@ -2438,6 +2438,17 @@ export function renderDstClusterIni(input: {
 }
 
 /**
+ * Per-shard worldgen presets for DST: the overworld shard generates a standard
+ * forest, the Caves shard MUST get the cave preset or it silently generates a
+ * second forest. Seeded once (never overwritten) so users can customize
+ * worldgen via the file manager without us stomping it.
+ */
+export const DST_WORLDGEN_OVERRIDES = {
+  master: `return {\n\toverride_enabled = true,\n\tpreset = "SURVIVAL_TOGETHER",\n}\n`,
+  caves: `return {\n\toverride_enabled = true,\n\tpreset = "DST_CAVE",\n\toverrides = {\n\t\ttask_set = "cave_default",\n\t},\n}\n`,
+};
+
+/**
  * Per-shard server.ini files for DST. The image ships identical defaults but
  * only copies them when DoNotStarveTogether/ doesn't exist yet — and our
  * cluster.ini/token write creates it first, so the copy never runs and both
