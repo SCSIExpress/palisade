@@ -88,3 +88,21 @@ describe("renderDstClusterIni", () => {
     expect(ini).toMatch(/^cluster_name = evil \[SHARD\] master_ip = 8\.8\.8\.8$/m);
   });
 });
+
+describe("renderDstShardInis", () => {
+  it("writes master/caves shard configs wired to the port block", async () => {
+    const { renderDstShardInis } = await import("./runtime-spec");
+    const { master, caves } = renderDstShardInis({ game: 10999, rawSocket: 11000, query: 12346 });
+    expect(master).toMatch(/^is_master = true$/m);
+    expect(master).toMatch(/^server_port = 10999$/m);
+    expect(master).toMatch(/^master_server_port = 12346$/m);
+    expect(master).toMatch(/^authentication_port = 8766$/m);
+    expect(caves).toMatch(/^is_master = false$/m);
+    expect(caves).toMatch(/^name = Caves$/m);
+    expect(caves).toMatch(/^server_port = 11000$/m);
+    expect(caves).toMatch(/^master_server_port = 12347$/m);
+    expect(caves).toMatch(/^authentication_port = 8767$/m);
+    expect(master).toMatch(/^encode_user_path = true$/m);
+    expect(caves).toMatch(/^encode_user_path = true$/m);
+  });
+});

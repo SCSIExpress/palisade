@@ -18,6 +18,7 @@ import {
   patchTShockConfig,
   patchFactorioSettings,
   renderDstClusterIni,
+  renderDstShardInis,
 } from "./runtime-spec";
 
 /** The subset of a Server row the config writers read. */
@@ -304,12 +305,21 @@ export class ServerConfigWriter {
       return;
     }
 
-    // DST: render cluster.ini fresh each start + persist the Klei cluster token
-    // (rides the admin-password field — DST has no RCON). Shard server.inis are
-    // left to the image's defaults, which match our fixed port block exactly.
+    // DST: render cluster.ini + both shard server.inis fresh each start, and
+    // persist the Klei cluster token (rides the admin-password field — DST has
+    // no RCON). We must own the shard inis: the image only copies its defaults
+    // when DoNotStarveTogether/ is absent, and our writes create it first.
     if (game === Game.DST) {
       const dir = join(env.DATA_DIR, "instances", server.id, "DoNotStarveTogether", "Cluster_1");
-      await mkdir(dir, { recursive: true });
+      await mkdir(join(dir, "Master"), { recursive: true });
+      await mkdir(join(dir, "Caves"), { recursive: true });
+      const shards = renderDstShardInis({
+        game: server.gamePort,
+        rawSocket: server.rawSocketPort,
+        query: server.queryPort,
+      });
+      await writeFile(join(dir, "Master", "server.ini"), shards.master, "utf8");
+      await writeFile(join(dir, "Caves", "server.ini"), shards.caves, "utf8");
       const ini = renderDstClusterIni({
         sessionName: server.name,
         serverPassword: server.serverPasswordEnc ? this.crypto.decrypt(server.serverPasswordEnc) : "",

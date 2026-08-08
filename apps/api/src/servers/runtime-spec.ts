@@ -2429,6 +2429,37 @@ export function renderDstClusterIni(input: {
   );
 }
 
+/**
+ * Per-shard server.ini files for DST. The image ships identical defaults but
+ * only copies them when DoNotStarveTogether/ doesn't exist yet — and our
+ * cluster.ini/token write creates it first, so the copy never runs and both
+ * shards would race for the same default port. We own these files instead,
+ * wired to the server's editable port block.
+ */
+export function renderDstShardInis(ports: { game: number; rawSocket: number; query: number }): {
+  master: string;
+  caves: string;
+} {
+  const shard = (kv: Record<string, Record<string, string | number>>) =>
+    Object.entries(kv)
+      .map(([nm, s]) => `[${nm}]\n` + Object.entries(s).map(([k, v]) => `${k} = ${v}`).join("\n"))
+      .join("\n\n") + "\n";
+  return {
+    master: shard({
+      SHARD: { is_master: "true" },
+      NETWORK: { server_port: ports.game },
+      STEAM: { master_server_port: ports.query, authentication_port: 8766 },
+      ACCOUNT: { encode_user_path: "true" },
+    }),
+    caves: shard({
+      SHARD: { is_master: "false", name: "Caves" },
+      NETWORK: { server_port: ports.rawSocket },
+      STEAM: { master_server_port: ports.query + 1, authentication_port: 8767 },
+      ACCOUNT: { encode_user_path: "true" },
+    }),
+  };
+}
+
 function buildOpenttdSpec(input: RuntimeSpecInput): Docker.ContainerCreateOptions {
   const env = loadEnv();
   const { ports } = input;
