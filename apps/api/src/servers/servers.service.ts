@@ -233,6 +233,19 @@ export class ServersService implements OnApplicationBootstrap {
   /** When the last teardown finished — lets the RAM guard debounce the window in
    *  which the freed memory isn't yet visible in /proc/meminfo (restart races). */
   private lastStopCompletedAt = 0;
+  /**
+   * DST caves-shard self-heal. In an ONLINE cluster the master won't accept the
+   * caves shard until it registers the cluster with Klei; if Klei's lobby is
+   * down at boot (503s on "send server listings"), the caves shard's one-shot
+   * announce is dropped and never retried — the server runs caveless until a
+   * restart. We watch the log stream: listing failures arm the healer, the
+   * "Secondary ... ready!" line disarms it, and once failures stop (Klei back)
+   * with no link, we restart ONCE per container run to re-announce the shard.
+   */
+  private readonly dstHeal = new Map<
+    string,
+    { lastFail: number; linked: boolean; healed: boolean; timer: NodeJS.Timeout }
+  >();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -778,6 +791,7 @@ export class ServersService implements OnApplicationBootstrap {
       await this.docker.removeByServerId(id).catch(() => undefined);
       this.logStops.get(id)?.();
       this.logStops.delete(id);
+      this.disarmDstHeal(id);
       await this.prisma.portAllocation.deleteMany({ where: { serverId: id } });
       await this.prisma.server.delete({ where: { id } });
     });
@@ -1257,6 +1271,7 @@ export class ServersService implements OnApplicationBootstrap {
 
       this.logStops.get(id)?.();
       this.logStops.delete(id);
+      this.disarmDstHeal(id);
 
       if (containerId) {
         // 20s SIGTERM courtesy, then the daemon SIGKILLs — bounded at ~20s.
@@ -1401,6 +1416,7 @@ export class ServersService implements OnApplicationBootstrap {
     // server's own log lines only.
     const row = await this.prisma.server.findUnique({ where: { id }, select: { game: true } });
     const readyRe = readyReFor(row?.game as Game);
+    if (row?.game === Game.DST) this.armDstHeal(id);
 
     const stop = await this.docker.followLogs(
       containerId,
@@ -1413,6 +1429,7 @@ export class ServersService implements OnApplicationBootstrap {
           at: new Date().toISOString(),
         });
         if (readyRe.test(line)) void this.onReady(id);
+        this.observeDstLine(id, line);
       },
       0, // only new lines — the seed holds the backlog
     );
@@ -1424,6 +1441,51 @@ export class ServersService implements OnApplicationBootstrap {
       .wait()
       .then(() => this.onContainerExit(id))
       .catch(() => undefined);
+  }
+
+  /** Start (or reset) the DST shard-heal tracker for a fresh container run. */
+  private armDstHeal(id: string): void {
+    this.disarmDstHeal(id);
+    const timer = setInterval(() => void this.evaluateDstHeal(id), 60_000);
+    timer.unref?.();
+    this.dstHeal.set(id, { lastFail: 0, linked: false, healed: false, timer });
+  }
+
+  private disarmDstHeal(id: string): void {
+    const entry = this.dstHeal.get(id);
+    if (entry) clearInterval(entry.timer);
+    this.dstHeal.delete(id);
+  }
+
+  private observeDstLine(id: string, line: string): void {
+    const entry = this.dstHeal.get(id);
+    if (!entry) return;
+    if (/\[Shard\] Secondary .*ready!/i.test(line)) entry.linked = true;
+    else if (line.includes("Failed to send server listings")) entry.lastFail = Date.now();
+  }
+
+  /**
+   * Fires when Klei listing failures STOP (their lobby recovered) but the caves
+   * shard never linked: the master only accepts secondaries once its cluster is
+   * registered, and the caves announce is one-shot. One restart re-runs the
+   * whole handshake against the now-healthy backend.
+   */
+  private async evaluateDstHeal(id: string): Promise<void> {
+    const entry = this.dstHeal.get(id);
+    if (!entry || entry.linked || entry.healed || entry.lastFail === 0) return;
+    if (Date.now() - entry.lastFail < 150_000) return; // failures still fresh → Klei still down
+    const state = await this.sm.current(id).catch(() => null);
+    if (state !== ServerState.Running) return;
+    entry.healed = true; // once per container run — the fresh run re-arms
+    await this.events.emit({
+      type: EventType.Warning,
+      message:
+        "DST: Klei's lobby recovered but the caves shard never linked (it announces only once) — restarting to reconnect it",
+      serverId: id,
+    });
+    await this.restart(id).catch((e) =>
+      this.logger.error(`DST shard-heal restart failed: ${(e as Error).message}`),
+    );
   }
 
   private async onReady(id: string): Promise<void> {
@@ -1558,6 +1620,7 @@ export class ServersService implements OnApplicationBootstrap {
       this.disarmStartDeadline(id);
       this.logStops.get(id)?.();
       this.logStops.delete(id);
+      this.disarmDstHeal(id);
       await this.rcon.disconnect(id).catch(() => undefined);
       // Capture the reason (log tail) BEFORE removing the container — a stuck start's
       // log is often the only clue the readiness marker never matched.
