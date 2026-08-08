@@ -603,6 +603,38 @@ export function ConnectCommand({
     );
   }
 
+  if (game === Game.DST) {
+    return (
+      <div className={className}>
+        <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-slate-400">
+          <Terminal className="h-3.5 w-3.5" /> Console connect (in-game)
+        </div>
+        <CopyRow
+          value={`c_connect("${hostOr}", ${gamePort})`}
+          title="Copy, then paste into the Don't Starve Together console and press Enter"
+        />
+        <p className="mt-1 text-[11px] leading-snug text-slate-500">
+          In Don&apos;t Starve Together: open the console (
+          <kbd className="rounded bg-ark-panel px-1 font-mono">~</kbd>), paste, press Enter. Or find it under{" "}
+          <span className="font-mono">Browse Games</span> by name — it lists there a couple of minutes after
+          start. Online, friends use your public IP with the same port.
+        </p>
+        {joinPassword && (
+          <div className="mt-3">
+            <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-slate-400">
+              <Lock className="h-3.5 w-3.5" /> Join password
+            </div>
+            <CopyRow value={joinPassword} title="Copy the join password" />
+            <p className="mt-1 text-[11px] leading-snug text-slate-500">
+              Enter this when Don&apos;t Starve Together prompts for the server password (the console command
+              prompts too).
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   // ARK (ASA / ASE)
   if (joinPassword) {
     return (

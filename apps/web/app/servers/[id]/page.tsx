@@ -526,6 +526,7 @@ function Overview({ server, onChanged }: { server: ServerSummary; onChanged: () 
   const isOpenttd = server.game === Game.OPENTTD;
   const isCs2 = server.game === Game.CS2;
   const isDst = server.game === Game.DST;
+  const isArk = server.game === Game.ASE || server.game === Game.ASA;
   const noQuery = isMc || isBedrock || isSdtd || isZomboid || isSatisfactory || isCoreKeeper || isTerraria || isFactorio || isBeammp || isOpenttd || isCs2 || isDst; // Valheim/Enshrouded/V Rising have a real query port; Zomboid/Satisfactory/OpenTTD/CS2 answer queries on the game port; DST queries go through Klei's lobby
   const noRcon = isIcarus || isBedrock || isValheim || isSdtd || isEnshrouded || isSotf || isSatisfactory || isLif || isAts || isCoreKeeper || isTerraria || isBeammp || isOpenttd || isDst; // 7DTD's console is telnet; OpenTTD's + DST's are in-game only
   const noMods = isIcarus || isBedrock || isValheim || isSdtd || isEnshrouded || isVRising || isSotf || isSatisfactory || isLif || isAts || isCoreKeeper || isTerraria || isFactorio || isRust || isBeammp || isOpenttd || isCs2 || isDst;
@@ -540,7 +541,9 @@ function Overview({ server, onChanged }: { server: ServerSummary; onChanged: () 
     ...(noRcon ? [] : [row("RCON port", `${server.ports.rcon}/tcp`)]),
     row("Max players", String(server.maxPlayers)),
     ...(noMods ? [] : [row("Mods", server.modIds.length ? server.modIds.join(", ") : "none")]),
-    row("Cluster", server.clusterId ?? "—"),
+    // Transfer clusters are an ARK concept (shared upload dir between ARK
+    // servers) — every other game just shows a confusing empty field.
+    ...(isArk ? [row("Cluster", server.clusterId ?? "—")] : []),
     row("RAM limit", server.ramLimitMb ? `${server.ramLimitMb} MB` : "unset"),
   ];
   return (

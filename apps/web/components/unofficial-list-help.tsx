@@ -49,6 +49,9 @@ export function UnofficialListHelp({
   const factorio = game === Game.FACTORIO;
   const rust = game === Game.RUST;
   const beammp = game === Game.BEAMMP;
+  const openttd = game === Game.OPENTTD;
+  const cs2 = game === Game.CS2;
+  const dst = game === Game.DST;
   const passwordHint = hasJoinPassword
     ? "your server has a join password"
     : "ON only if you set a join password";
@@ -67,7 +70,7 @@ export function UnofficialListHelp({
             ? "Add it to your server list"
             : satisfactory
               ? "Add it to your Server Manager"
-            : conan || palworld || icarus || valheim || sdtd || enshrouded || zomboid || vrising || sotf || lif || ats || factorio || rust || beammp
+            : conan || palworld || icarus || valheim || sdtd || enshrouded || zomboid || vrising || sotf || lif || ats || factorio || rust || beammp || openttd || cs2 || dst
               ? "Find it in the in-game server browser"
               : "Find it on the in-game Unofficial list"}
         </span>
@@ -75,7 +78,52 @@ export function UnofficialListHelp({
       </button>
 
       {open &&
-        (beammp ? (
+        (dst ? (
+          <div className="space-y-1.5 border-t border-ark-border px-2.5 py-2 text-xs">
+            <p className="text-slate-400">
+              In <span className="text-slate-200">Play → Browse Games</span>:
+            </p>
+            <FilterRow state="on" label="Search the server list by name" />
+            <FilterRow
+              state={hasJoinPassword ? "on" : "off"}
+              label="Password prompt on join (lock icon)"
+              hint={passwordHint}
+            />
+            <p className="pt-1 leading-snug text-slate-400">
+              Search the name <span className="font-mono text-slate-200">{serverName}</span> — it can take a
+              couple of minutes to appear after start. If the server is set{" "}
+              <span className="text-slate-300">Offline cluster</span> it only shows on the{" "}
+              <span className="text-slate-200">LAN</span> tab. No browser? Console-connect with the command
+              above.
+            </p>
+          </div>
+        ) : cs2 ? (
+          <div className="space-y-1.5 border-t border-ark-border px-2.5 py-2 text-xs">
+            <p className="text-slate-400">
+              In <span className="text-slate-200">Play → Community Server Browser</span>:
+            </p>
+            <FilterRow state="on" label="Search by name (needs a Game Server Login Token to list)" />
+            <FilterRow state={hasJoinPassword ? "on" : "off"} label="Password prompt on join" hint={passwordHint} />
+            <p className="pt-1 leading-snug text-slate-400">
+              Most players skip the browser: open the console (
+              <span className="font-mono text-slate-200">~</span>) and use the{" "}
+              <span className="font-mono text-slate-200">connect</span> command shown above. Without an SRCDS
+              token the server is direct-connect only.
+            </p>
+          </div>
+        ) : openttd ? (
+          <div className="space-y-1.5 border-t border-ark-border px-2.5 py-2 text-xs">
+            <p className="text-slate-400">
+              In <span className="text-slate-200">Multiplayer</span>:
+            </p>
+            <FilterRow state="on" label="Public server list — search by name (only if Public is on)" />
+            <FilterRow state={hasJoinPassword ? "on" : "off"} label="Password prompt on join" hint={passwordHint} />
+            <p className="pt-1 leading-snug text-slate-400">
+              Search the name <span className="font-mono text-slate-200">{serverName}</span>, or use{" "}
+              <span className="text-slate-200">Add Server</span> with the address shown above.
+            </p>
+          </div>
+        ) : beammp ? (
           <div className="space-y-1.5 border-t border-ark-border px-2.5 py-2 text-xs">
             <p className="text-slate-400">
               In the <span className="text-slate-200">BeamMP launcher</span>:
