@@ -278,6 +278,22 @@ const IMAGE_CREDITS: { game: string; maintainer: string; url: string }[] = [
   { game: "Enshrouded", maintainer: "mornedhels", url: "https://github.com/mornedhels/enshrouded-server" },
   { game: "Valheim", maintainer: "lloesche / community-valheim-tools", url: "https://github.com/community-valheim-tools/valheim-server-docker" },
   { game: "7 Days to Die", maintainer: "vinanrra (LinuxGSM)", url: "https://github.com/vinanrra/Docker-7DaysToDie" },
+  { game: "Palworld (Wine)", maintainer: "ripps818", url: "https://github.com/ripps818/docker-palworld-dedicated-server-wine" },
+  { game: "Project Zomboid", maintainer: "Danixu", url: "https://github.com/danixu/project-zomboid-server-docker" },
+  { game: "V Rising", maintainer: "TrueOsiris", url: "https://github.com/TrueOsiris/docker-vrising" },
+  { game: "Sons of the Forest", maintainer: "jammsen", url: "https://github.com/jammsen/docker-sons-of-the-forest-dedicated-server" },
+  { game: "Satisfactory", maintainer: "wolveix", url: "https://github.com/wolveix/satisfactory-server" },
+  { game: "Life is Feudal: YO", maintainer: "ich777", url: "https://github.com/ich777/docker-steamcmd-server" },
+  { game: "American Truck Simulator", maintainer: "ich777", url: "https://github.com/ich777/docker-steamcmd-server" },
+  { game: "Euro Truck Simulator 2", maintainer: "ich777", url: "https://github.com/ich777/docker-steamcmd-server" },
+  { game: "OpenTTD", maintainer: "ich777", url: "https://hub.docker.com/r/ich777/openttdserver" },
+  { game: "Core Keeper", maintainer: "Escaping Network", url: "https://github.com/escapingnetwork/core-keeper-dedicated" },
+  { game: "Terraria (TShock)", maintainer: "Ryan Sheehan", url: "https://github.com/ryansheehan/terraria" },
+  { game: "Factorio", maintainer: "factoriotools", url: "https://github.com/factoriotools/factorio-docker" },
+  { game: "Rust", maintainer: "Didstopia", url: "https://github.com/Didstopia/rust-server" },
+  { game: "BeamNG.drive (BeamMP)", maintainer: "RouHim", url: "https://github.com/RouHim/beammp-container-image" },
+  { game: "Counter-Strike 2", maintainer: "joedwards32", url: "https://github.com/joedwards32/CS2" },
+  { game: "Don't Starve Together", maintainer: "Jamesits", url: "https://github.com/Jamesits/docker-dst-server" },
 ];
 
 function CreditsCard() {
@@ -287,7 +303,7 @@ function CreditsCard() {
       <p className="text-xs leading-snug text-slate-400">
         This manager is only the control plane — every game server runs on a
         community-maintained Docker image. Huge thanks to the maintainers who do the real heavy
-        lifting:
+        lifting (each game&apos;s quirks are covered in its Guide tab):
       </p>
       <ul className="grid gap-x-6 gap-y-1 text-xs sm:grid-cols-2">
         {IMAGE_CREDITS.map((c) => (

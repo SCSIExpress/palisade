@@ -7,6 +7,7 @@ import { mapLabel, Game, ServerState, type ServerSummary, type ServerConfigValue
 import { apiGet, apiPost, apiPatch, apiDelete, apiDownload } from "@/lib/api";
 import { useRealtime } from "@/lib/socket";
 import { StateBadge } from "@/components/state-badge";
+import { GuideTab } from "@/components/guide-tab";
 import { HealthBanner } from "@/components/health-banner";
 import { UpdateBadge } from "@/components/update-badge";
 import { ConnectCommand } from "@/components/connect-command";
@@ -39,7 +40,7 @@ import { ArtworkPicker } from "@/components/artwork-picker";
 import { BackupsTab } from "@/components/backups-tab";
 import { PlayersTab } from "@/components/players-tab";
 
-const TABS = ["Overview", "Settings", "Mods", "Players", "Console", "Logs", "Files", "Schedules", "Backups"] as const;
+const TABS = ["Overview", "Settings", "Mods", "Players", "Console", "Logs", "Files", "Schedules", "Backups", "Guide"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function ServerDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -368,6 +369,7 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
       {tab === "Files" && <FilesTab serverId={id} />}
       {tab === "Schedules" && <ScheduleList serverId={id} />}
       {tab === "Backups" && <BackupsTab serverId={id} />}
+      {tab === "Guide" && <GuideTab game={server.game} />}
     </div>
   );
 }
