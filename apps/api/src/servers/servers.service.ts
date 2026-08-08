@@ -184,6 +184,15 @@ export function readyReFor(game: Game): RegExp {
 const CRASH_WINDOW_MS = 5 * 60_000;
 const CRASH_LIMIT = 3;
 
+/** Crash-reason signatures of TRANSIENT Steam/CDN failures worth waiting out:
+ *  SteamCMD's bogus app state after a failed update job, the manifest-request
+ *  denial behind it, and anonymous-login flakes. Deliberately tight — a real
+ *  config/image problem must still park at Crashed. */
+const STEAM_TRANSIENT_RE =
+  /state is 0x[0-9a-f]+ after update job|Failed to get manifest request code|Connecting anonymously to Steam Public\.*\s*(FAILED|timed? ?out)/i;
+const STEAM_RETRY_DELAY_MS = 10 * 60_000;
+const STEAM_RETRY_MAX = 6;
+
 /**
  * How long a server may sit in Starting before we treat the start as failed. A
  * server that never reaches its ready marker — a wrong/renamed marker, a boot that
@@ -246,6 +255,16 @@ export class ServersService implements OnApplicationBootstrap {
     string,
     { lastFail: number; linked: boolean; healed: boolean; timer: NodeJS.Timeout }
   >();
+  /**
+   * Patient retries for crash loops caused by TRANSIENT Steam/CDN failures
+   * (SteamCMD `state is 0x6`, manifest-request "Access Denied", login timeouts —
+   * images that run app_update on every boot die on these). The fast crash-loop
+   * guard still stops the hammering; when the captured crash reason matches a
+   * known-transient signature we schedule another attempt every 10 min instead
+   * of parking at Crashed forever. Live pattern: DST during the 2026-08-07
+   * Klei/Steam update-night turbulence.
+   */
+  private readonly steamRetry = new Map<string, { attempts: number; timer?: NodeJS.Timeout }>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -1265,6 +1284,7 @@ export class ServersService implements OnApplicationBootstrap {
   private async tearDownStopped(id: string, containerId: string | null): Promise<void> {
     this.stopping.add(id); // suppress the crash watchdog for this deliberate exit
     this.disarmStartDeadline(id); // stopping during boot cancels the startup failsafe
+    this.disarmSteamRetry(id); // an explicit stop/restart takes over from patient retries
     try {
       await this.saveAndWaitForSave(id, containerId);
       await this.rcon.disconnect(id).catch(() => undefined);
@@ -1443,6 +1463,40 @@ export class ServersService implements OnApplicationBootstrap {
       .catch(() => undefined);
   }
 
+  /** One more patient attempt at a transient-Steam crash loop, 10 min out. */
+  private async scheduleSteamRetry(id: string): Promise<void> {
+    const entry = this.steamRetry.get(id) ?? { attempts: 0 };
+    if (entry.attempts >= STEAM_RETRY_MAX) {
+      await this.events.emit({
+        type: EventType.Warning,
+        message: `Steam kept failing after ${STEAM_RETRY_MAX} patient retries — giving up (start it manually once Steam recovers)`,
+        serverId: id,
+      });
+      return;
+    }
+    entry.attempts += 1;
+    if (entry.timer) clearTimeout(entry.timer);
+    entry.timer = setTimeout(() => {
+      void this.start(id).catch((e) =>
+        this.logger.warn(`steam-retry start failed for ${id}: ${(e as Error).message}`),
+      );
+    }, STEAM_RETRY_DELAY_MS);
+    entry.timer.unref?.();
+    this.steamRetry.set(id, entry);
+    await this.events.emit({
+      type: EventType.Warning,
+      message: `Crash looks like a transient Steam/CDN failure — retrying in 10 min (patient attempt ${entry.attempts}/${STEAM_RETRY_MAX})`,
+      serverId: id,
+    });
+  }
+
+  /** Steam recovered (server reached ready) or the user took over — stop waiting. */
+  private disarmSteamRetry(id: string): void {
+    const entry = this.steamRetry.get(id);
+    if (entry?.timer) clearTimeout(entry.timer);
+    this.steamRetry.delete(id);
+  }
+
   /** Start (or reset) the DST shard-heal tracker for a fresh container run. */
   private armDstHeal(id: string): void {
     this.disarmDstHeal(id);
@@ -1492,6 +1546,7 @@ export class ServersService implements OnApplicationBootstrap {
     const state = await this.sm.current(id).catch(() => null);
     if (state !== ServerState.Starting) return; // already Running → fires once
     this.disarmStartDeadline(id); // reached ready in time — cancel the failsafe
+    this.disarmSteamRetry(id); // a healthy boot ends the patient-retry cycle
     await this.sm.transition(id, ServerState.Running);
     // First successful install seeds the golden cache for future servers.
     const server = await this.prisma.server.findUnique({ where: { id } });
@@ -1524,6 +1579,16 @@ export class ServersService implements OnApplicationBootstrap {
 
     await this.sm.transition(id, ServerState.Crashed);
     if (recent.length >= CRASH_LIMIT) {
+      // Fast loop exhausted. If the captured reason is a known-transient
+      // Steam/CDN failure, keep trying patiently instead of giving up — these
+      // clear on their own (rate limits, update-push turbulence).
+      const row = await this.prisma.server
+        .findUnique({ where: { id }, select: { crashReason: true } })
+        .catch(() => null);
+      if (row?.crashReason && STEAM_TRANSIENT_RE.test(row.crashReason)) {
+        await this.scheduleSteamRetry(id);
+        return;
+      }
       await this.events.emit({
         type: EventType.Warning,
         message: `Server crashed ${recent.length}x in 5 min — auto-restart paused (loop guard)`,
@@ -1679,6 +1744,15 @@ export class ServersService implements OnApplicationBootstrap {
       if (dst.lastFail && !dst.linked) {
         return "Caves shard not linked — waiting for the automatic relink restart after the Klei outage.";
       }
+    }
+    // Generic (all queryable games): the player-count probe was answering this
+    // run and has gone silent — the game process is likely hung even though its
+    // container is up. Only fires after a successful probe, so games with no
+    // usable query/credentials never alarm.
+    const probe = this.players.probeFailingSince(id);
+    if (probe) {
+      const min = Math.max(1, Math.round(probe.failingForMs / 60_000));
+      return `Not answering status queries for ~${min} min — the game process may be hung even though its container is running. A restart usually clears it.`;
     }
     return null;
   }

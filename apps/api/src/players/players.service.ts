@@ -7,6 +7,7 @@ import { satisfactoryQueryState } from "./satisfactory-api";
 import { containerName } from "../common/naming";
 import { loadEnv } from "../config/env";
 import { a2sInfo, raknetPing, type QueryCount } from "./query-protocols";
+import { ProbeHealthTracker } from "./probe-health";
 
 /** How long a fetched count stays fresh — dashboards poll every 5 s, but hitting
  *  the game servers that often is pointless. */
@@ -47,6 +48,8 @@ export class PlayersService {
   private readonly logger = new Logger(PlayersService.name);
   private readonly cache = new Map<string, { count: QueryCount | null; at: number; ok: boolean }>();
   private readonly inflight = new Map<string, Promise<QueryCount | null>>();
+  /** "Was answering, stopped answering" per run — feeds the Unhealthy badge. */
+  private readonly probeHealth = new ProbeHealthTracker();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -78,9 +81,28 @@ export class PlayersService {
     return this.cache.get(serverId)?.count ?? null;
   }
 
+  /** Non-null when a Running server's probe was answering and has now been
+   *  silent past the threshold (~3 min) — the game process is likely hung. */
+  probeFailingSince(serverId: string): { failingForMs: number } | null {
+    return this.probeHealth.failingSince(serverId);
+  }
+
   private async fetch(serverId: string): Promise<QueryCount | null> {
     const server = await this.prisma.server.findUnique({ where: { id: serverId } });
-    if (!server || server.state !== ServerState.Running) return null;
+    if (!server || server.state !== ServerState.Running) {
+      // Not Running → any prior probe history is for a finished run.
+      this.probeHealth.reset(serverId);
+      return null;
+    }
+    const count = await this.fetchFor(serverId, server).catch(() => null);
+    this.probeHealth.record(serverId, count !== null);
+    return count;
+  }
+
+  private async fetchFor(
+    serverId: string,
+    server: NonNullable<Awaited<ReturnType<PrismaService["server"]["findUnique"]>>>,
+  ): Promise<QueryCount | null> {
     const game = server.game as Game;
     // Same reachability rule as RCON: host networking → via the host gateway;
     // bridge → the container name resolves on ark-net.
