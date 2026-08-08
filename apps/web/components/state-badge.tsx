@@ -11,15 +11,23 @@ const STYLES: Record<ServerState, string> = {
   [ServerState.Crashed]: "bg-red-500/15 text-red-400 border-red-500/30",
 };
 
-export function StateBadge({ state }: { state: ServerState }) {
+/**
+ * When a Running server carries a healthNote (process up, but a dependency it
+ * needs is down — e.g. DST unregistered with Klei), the badge turns amber
+ * "Unhealthy" so the degradation is visible everywhere the state is, not just
+ * in the logs. The note itself rides the title; the server page shows a banner.
+ */
+export function StateBadge({ state, healthNote }: { state: ServerState; healthNote?: string | null }) {
+  const unhealthy = state === ServerState.Running && Boolean(healthNote);
   return (
     <span
+      title={unhealthy ? (healthNote ?? undefined) : undefined}
       className={clsx(
         "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium",
-        STYLES[state],
+        unhealthy ? "border-amber-500/30 bg-amber-500/15 text-amber-400" : STYLES[state],
       )}
     >
-      {state}
+      {unhealthy ? "Unhealthy" : state}
     </span>
   );
 }

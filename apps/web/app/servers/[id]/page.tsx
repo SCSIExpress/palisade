@@ -7,6 +7,7 @@ import { mapLabel, Game, ServerState, type ServerSummary, type ServerConfigValue
 import { apiGet, apiPost, apiPatch, apiDelete, apiDownload } from "@/lib/api";
 import { useRealtime } from "@/lib/socket";
 import { StateBadge } from "@/components/state-badge";
+import { HealthBanner } from "@/components/health-banner";
 import { UpdateBadge } from "@/components/update-badge";
 import { ConnectCommand } from "@/components/connect-command";
 import { UnofficialListHelp } from "@/components/unofficial-list-help";
@@ -281,7 +282,7 @@ export default function ServerDetailPage({ params }: { params: Promise<{ id: str
               )}
             </>
           )}
-          <StateBadge state={server.state} />
+          <StateBadge state={server.state} healthNote={server.healthNote} />
           {server.updateAvailable && <UpdateBadge />}
         </div>
         <div className="flex flex-wrap gap-2">
@@ -549,6 +550,7 @@ function Overview({ server, onChanged }: { server: ServerSummary; onChanged: () 
   return (
     <div className="space-y-6">
       <CrashBanner server={server} />
+      <HealthBanner server={server} />
       <ResourcesPanel serverId={server.id} state={server.state} />
       <div className="card">
         <dl className="grid gap-x-8 gap-y-3 sm:grid-cols-2">

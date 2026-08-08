@@ -22,6 +22,11 @@ export interface ServerSummary {
    *  log tail — or the launch error for a start that never got a container. Null
    *  otherwise. Lets the UI explain a crash (e.g. a pinned image that won't boot). */
   crashReason?: string | null;
+  /** Set while the server is Running but degraded — the game process is up yet a
+   *  service it depends on isn't (e.g. DST unregistered with Klei during a lobby
+   *  outage, caves shard unlinked). The UI shows "Unhealthy" instead of Running.
+   *  Null/absent = healthy. */
+  healthNote?: string | null;
   /** The game's server image is already pulled locally — "Install" (an image
    *  pull) would be a no-op, so the UI disables it. Game files install on Start. */
   imageReady: boolean;

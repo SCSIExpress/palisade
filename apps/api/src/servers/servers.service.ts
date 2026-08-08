@@ -1663,6 +1663,26 @@ export class ServersService implements OnApplicationBootstrap {
     }
   }
 
+  /**
+   * Degraded-health note for a RUNNING server — the game process is up but a
+   * service it depends on isn't. Derived live from the DST shard tracker (in-
+   * memory; re-populates within ~25s of adoption from the log stream), so it
+   * clears itself the moment the condition does. Null = healthy.
+   */
+  private healthNoteFor(id: string): string | null {
+    const dst = this.dstHeal.get(id);
+    if (dst) {
+      // Failures arrive every ~25s while unregistered; "fresh" = still failing.
+      if (dst.lastFail && Date.now() - dst.lastFail < 90_000) {
+        return "Not registered with Klei — their lobby is answering 503. The server won't appear in Browse Games and the caves shard can't link until it recovers (auto-restarts then). Direct console joins still work.";
+      }
+      if (dst.lastFail && !dst.linked) {
+        return "Caves shard not linked — waiting for the automatic relink restart after the Klei outage.";
+      }
+    }
+    return null;
+  }
+
   private toSummary(row: ServerRow, imageReady = false): ServerSummary {
     if (!row) throw new NotFoundException("Server not found");
     // Join password is shown so it can be copied for the in-game prompt. Prefer the
@@ -1691,6 +1711,7 @@ export class ServersService implements OnApplicationBootstrap {
       modUpdateAvailable: row.modUpdateAvailable,
       imageTag: row.imageTag,
       crashReason: row.state === ServerState.Crashed ? row.crashReason : null,
+      healthNote: row.state === ServerState.Running ? this.healthNoteFor(row.id) : null,
       imageReady,
       configDirty: row.configDirty,
       joinPassword,

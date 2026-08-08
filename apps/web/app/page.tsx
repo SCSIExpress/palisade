@@ -210,7 +210,7 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div className="flex flex-col items-end gap-1.5">
-                <StateBadge state={s.state} />
+                <StateBadge state={s.state} healthNote={s.healthNote} />
                 {s.updateAvailable && <UpdateBadge />}
                 {s.modUpdateAvailable && <ModUpdateBadge />}
               </div>
