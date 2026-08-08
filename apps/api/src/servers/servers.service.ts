@@ -1495,8 +1495,9 @@ export class ServersService implements OnApplicationBootstrap, OnApplicationShut
    * The manager is going down (docker stop, deploy, array shutdown). Fire a
    * best-effort world-save at every RUNNING server so a host reboot costs at
    * most a few seconds of progress instead of everything since the last
-   * autosave. Bounded to ~8 s total — Docker's default stop grace is 10 s and
-   * an expired grace means SIGKILL for us AND no save at all.
+   * autosave. Bounded to ~6 s total — fits even Docker's default 10 s stop
+   * grace (our own container asks for 30), because an expired grace means
+   * SIGKILL for us AND no save at all.
    */
   async onApplicationShutdown(signal?: string): Promise<void> {
     const running = await this.prisma.server
@@ -1515,7 +1516,7 @@ export class ServersService implements OnApplicationBootstrap, OnApplicationShut
           ),
         ),
       ),
-      new Promise((resolve) => setTimeout(resolve, 8_000).unref?.()),
+      new Promise((resolve) => setTimeout(resolve, 6_000).unref?.()),
     ]);
   }
 

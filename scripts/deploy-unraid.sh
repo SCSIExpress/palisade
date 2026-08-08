@@ -57,6 +57,7 @@ ARGS=(
   -l net.unraid.docker.managed=dockerman
   -l 'net.unraid.docker.webui=http://[IP]:[PORT:3000]/'
   --restart unless-stopped
+  --stop-timeout 30
   --env-file /dev/stdin
 )
 if [ "\$USE_PROXY" = "1" ]; then
