@@ -26,7 +26,7 @@ player administration, and even your router's port-forwards.
 > with `/var/run/docker.sock` and a data volume mounted; see the template in
 > [`unraid/palisade.xml`](unraid/palisade.xml) for the full env/mount list.
 
-**Supported games (26):**
+**Supported games (26)** — each has a [per-game guide](docs/games/README.md) covering ports, joining, first boot, and gotchas:
 
 | Game | Runtime | Console | Mods |
 |---|---|---|---|
