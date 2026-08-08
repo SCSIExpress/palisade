@@ -11,10 +11,6 @@ type SettingsView = Record<string, string | boolean>;
 
 const TABS = ["General", "Integrations", "Backups", "Users", "Notifications", "About"] as const;
 type Tab = (typeof TABS)[number];
-/** Tabs whose fields are saved by the shared Save button (the other tabs' cards
- *  save themselves). */
-const SAVABLE_TABS = new Set<Tab>(["General", "Integrations", "Backups"]);
-
 export default function SettingsPage() {
   const [tab, setTab] = useState<Tab>("General");
   const [view, setView] = useState<SettingsView>({});
@@ -29,8 +25,9 @@ export default function SettingsPage() {
   const [pfsenseApiKey, setPfsenseApiKey] = useState("");
   const [pfsenseTargetIp, setPfsenseTargetIp] = useState("");
   const [pfTestMsg, setPfTestMsg] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
-  const [busy, setBusy] = useState(false);
+  // Per-card save state: which card is mid-save / which just saved.
+  const [busyCard, setBusyCard] = useState<string | null>(null);
+  const [savedCard, setSavedCard] = useState<string | null>(null);
 
   const load = () => {
     apiGet<SettingsView>("/settings")
@@ -64,34 +61,61 @@ export default function SettingsPage() {
 
   const configured = (key: string) => view[key] === true || typeof view[key] === "string";
 
-  const save = async () => {
-    setBusy(true);
-    setSaved(false);
+  /** Save ONE card's fields; `after` clears write-only secret inputs on success. */
+  const saveCard = async (
+    card: string,
+    body: Record<string, string | number | boolean>,
+    after?: () => void,
+  ) => {
+    setBusyCard(card);
+    setSavedCard(null);
     try {
-      const settingsBody: Record<string, string | number | boolean> = {};
-      if (timezone) settingsBody.timezone = timezone;
-      if (curseForgeApiKey) settingsBody.curseForgeApiKey = curseForgeApiKey;
-      if (steamWebApiKey) settingsBody.steamWebApiKey = steamWebApiKey;
-      if (steamGridDbApiKey) settingsBody.steamGridDbApiKey = steamGridDbApiKey;
-      const keep = parseInt(backupKeep, 10);
-      if (Number.isFinite(keep) && keep >= 1) settingsBody.backupKeep = keep;
-      settingsBody.autoStopOnStart = autoStop;
-      settingsBody.pfsenseHost = pfsenseHost;
-      settingsBody.pfsenseTargetIp = pfsenseTargetIp;
-      if (pfsenseApiKey) settingsBody.pfsenseApiKey = pfsenseApiKey;
-      if (Object.keys(settingsBody).length) await apiPatch("/settings", settingsBody);
-      setCurseForgeApiKey("");
-      setSteamWebApiKey("");
-      setSteamGridDbApiKey("");
-      setPfsenseApiKey("");
-      setSaved(true);
+      await apiPatch("/settings", body);
+      after?.();
+      setSavedCard(card);
       load();
     } catch (err) {
       alert((err as Error).message);
     } finally {
-      setBusy(false);
+      setBusyCard(null);
     }
   };
+
+  const saveModKeys = () => {
+    const body: Record<string, string> = {};
+    if (curseForgeApiKey) body.curseForgeApiKey = curseForgeApiKey;
+    if (steamWebApiKey) body.steamWebApiKey = steamWebApiKey;
+    if (steamGridDbApiKey) body.steamGridDbApiKey = steamGridDbApiKey;
+    void saveCard("modkeys", body, () => {
+      setCurseForgeApiKey("");
+      setSteamWebApiKey("");
+      setSteamGridDbApiKey("");
+    });
+  };
+
+  const savePfsense = () => {
+    const body: Record<string, string> = { pfsenseHost, pfsenseTargetIp };
+    if (pfsenseApiKey) body.pfsenseApiKey = pfsenseApiKey;
+    void saveCard("pfsense", body, () => setPfsenseApiKey(""));
+  };
+
+  const saveBackups = () => {
+    const keep = parseInt(backupKeep, 10);
+    if (!Number.isFinite(keep) || keep < 1) return alert("Keep count must be a number ≥ 1.");
+    void saveCard("backups", { backupKeep: keep });
+  };
+
+  const saveGeneral = () => void saveCard("general", timezone ? { timezone } : {});
+  const saveStartGuard = () => void saveCard("startguard", { autoStopOnStart: autoStop });
+
+  const CardSave = ({ card, onClick }: { card: string; onClick: () => void }) => (
+    <div className="pt-1">
+      <button className="btn-primary" onClick={onClick} disabled={busyCard === card}>
+        <Save className="h-4 w-4" />{" "}
+        {busyCard === card ? "Saving…" : savedCard === card ? "Saved ✓" : "Save settings"}
+      </button>
+    </div>
+  );
 
   // Fetches art for every game with the SAVED key — save first if the field is dirty.
   const fetchArtwork = async () => {
@@ -150,6 +174,7 @@ export default function SettingsPage() {
                 Used for schedule times. Defaults to this device&apos;s timezone.
               </p>
             </div>
+            <CardSave card="general" onClick={saveGeneral} />
           </div>
           <div className="card space-y-3">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-ark-accent2">Start guard</h2>
@@ -169,6 +194,7 @@ export default function SettingsPage() {
                 </span>
               </span>
             </label>
+            <CardSave card="startguard" onClick={saveStartGuard} />
           </div>
         </>
       )}
@@ -218,6 +244,7 @@ export default function SettingsPage() {
                 {artMsg && <span className="text-sm text-slate-400">{artMsg}</span>}
               </div>
             </div>
+            <CardSave card="modkeys" onClick={saveModKeys} />
           </div>
           <div className="card space-y-4">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-ark-accent2">
@@ -269,6 +296,7 @@ export default function SettingsPage() {
               </button>
               {pfTestMsg && <p className="mt-2 text-sm text-slate-400">{pfTestMsg}</p>}
             </div>
+            <CardSave card="pfsense" onClick={savePfsense} />
           </div>
         </>
       )}
@@ -292,6 +320,7 @@ export default function SettingsPage() {
                 just the live world, players, and config (ARK&apos;s own dated copies + logs are skipped).
               </p>
             </div>
+            <CardSave card="backups" onClick={saveBackups} />
           </div>
           <ReplicationCard />
         </>
@@ -300,12 +329,6 @@ export default function SettingsPage() {
       {tab === "Users" && <UsersCard />}
       {tab === "Notifications" && <NotificationTargetsCard />}
       {tab === "About" && <CreditsCard />}
-
-      {SAVABLE_TABS.has(tab) && (
-        <button className="btn-primary" onClick={save} disabled={busy}>
-          <Save className="h-4 w-4" /> {busy ? "Saving…" : saved ? "Saved ✓" : "Save settings"}
-        </button>
-      )}
     </div>
   );
 }
