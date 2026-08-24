@@ -1,10 +1,28 @@
 "use client";
-import { useState } from "react";
-import { Terminal, Plus, Trash2, Save, Check, ChevronDown } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Terminal, Plus, Trash2, Save, Check, ChevronDown, Loader2, AlertTriangle } from "lucide-react";
 import type { ServerSummary, EnvVar } from "@ark/shared";
-import { apiPatch } from "@/lib/api";
+import { apiGet, apiPut } from "@/lib/api";
+import { useRole } from "@/lib/use-role";
 
 const KEY_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+/** Keys the manager sets itself and depends on. Overriding one is allowed — this is
+ *  the advanced escape hatch — but it breaks the panel's own plumbing (console,
+ *  player counts, the port-conflict guard), so the card says so before you do. */
+const MANAGER_OWNED = new Set([
+  "RCON_PORT",
+  "RCON_ENABLED",
+  "PORT",
+  "QUERY_PORT",
+  "PUBLIC_PORT",
+  "SERVER_PORT",
+  "ADMIN_PASSWORD",
+  "RCONPASSWORD",
+  "SERVER_PASSWORD",
+  "PUID",
+  "PGID",
+]);
 
 /**
  * Advanced card for managing custom environment variables that are injected into the
@@ -12,23 +30,40 @@ const KEY_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
  * variable set by the manager — e.g. TARGET_MANIFEST_ID for Palworld).
  */
 export function EnvVarsCard({ server, onSaved }: { server: ServerSummary; onSaved: () => void }) {
+  const role = useRole();
+  const isAdmin = role === "admin";
   const [open, setOpen] = useState(false);
-  const [rows, setRows] = useState<EnvVar[]>(() =>
-    Array.isArray(server.extraEnv) ? server.extraEnv.map((e) => ({ ...e })) : [],
-  );
+  const [rows, setRows] = useState<EnvVar[]>([]);
+  // What the server last told us, for the dirty check.
+  const [loaded, setLoaded] = useState<EnvVar[] | null>(null);
+  const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // Re-sync local state when the server prop changes (e.g. after a refresh).
+  // Values live behind an admin-only endpoint — they hold credentials, so they are
+  // deliberately absent from the server summary every role can read. Fetch on open.
+  useEffect(() => {
+    if (!open || !isAdmin || loaded || loading) return;
+    setLoading(true);
+    apiGet<EnvVar[]>(`/servers/${server.id}/extra-env`)
+      .then((vars) => {
+        setLoaded(vars);
+        setRows(vars.map((e) => ({ ...e })));
+      })
+      .catch((e) => setErr((e as Error).message))
+      .finally(() => setLoading(false));
+  }, [open, isAdmin, loaded, loading, server.id]);
+
+  // Switching servers invalidates everything we fetched.
   const [lastId, setLastId] = useState(server.id);
   if (server.id !== lastId) {
     setLastId(server.id);
-    setRows(Array.isArray(server.extraEnv) ? server.extraEnv.map((e) => ({ ...e })) : []);
+    setLoaded(null);
+    setRows([]);
   }
 
-  const dirty =
-    JSON.stringify(rows) !== JSON.stringify(Array.isArray(server.extraEnv) ? server.extraEnv : []);
+  const dirty = loaded !== null && JSON.stringify(rows) !== JSON.stringify(loaded);
 
   const addRow = () => setRows((r) => [...r, { key: "", value: "" }]);
 
@@ -59,7 +94,8 @@ export function EnvVarsCard({ server, onSaved }: { server: ServerSummary; onSave
     setErr(null);
     setSaved(false);
     try {
-      await apiPatch(`/servers/${server.id}`, { extraEnv: rows });
+      await apiPut(`/servers/${server.id}/extra-env`, { extraEnv: rows });
+      setLoaded(rows.map((e) => ({ ...e })));
       setSaved(true);
       setTimeout(() => setSaved(false), 1500);
       onSaved();
@@ -70,7 +106,8 @@ export function EnvVarsCard({ server, onSaved }: { server: ServerSummary; onSave
     }
   };
 
-  const count = server.extraEnv?.length ?? 0;
+  const count = server.extraEnvKeys?.length ?? 0;
+  const overridden = rows.filter((r) => MANAGER_OWNED.has(r.key)).map((r) => r.key);
 
   return (
     <div className="card">
@@ -95,10 +132,44 @@ export function EnvVarsCard({ server, onSaved }: { server: ServerSummary; onSave
             These environment variables are appended to the container at start — they can override
             any built-in variable set by the manager (e.g.{" "}
             <span className="font-mono text-slate-400">TARGET_MANIFEST_ID</span> for Palworld version
-            pinning). A server restart is required after saving.
+            pinning). A server restart is required after saving. Values are stored encrypted and are
+            only readable by admins, so credentials such as a Steam login are safe to put here.
           </p>
 
-          {rows.length > 0 && (
+          {!isAdmin && (
+            <p className="text-[11px] leading-snug text-amber-300/90">
+              {count > 0 ? (
+                <>
+                  This server has {count} custom variable{count === 1 ? "" : "s"} set (
+                  <span className="font-mono">{server.extraEnvKeys.join(", ")}</span>). Only an admin
+                  can view or change their values.
+                </>
+              ) : (
+                <>Only an admin can view or change custom environment variables.</>
+              )}
+            </p>
+          )}
+
+          {isAdmin && loading && (
+            <p className="flex items-center gap-1.5 text-[11px] text-slate-500">
+              <Loader2 className="h-3 w-3 animate-spin" /> Loading values…
+            </p>
+          )}
+
+          {overridden.length > 0 && (
+            <p className="flex items-start gap-1.5 text-[11px] leading-snug text-amber-300/90">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>
+                <span className="font-mono">{overridden.join(", ")}</span>{" "}
+                {overridden.length === 1 ? "is" : "are"} set by the manager. Overriding{" "}
+                {overridden.length === 1 ? "it" : "them"} is allowed, but the panel uses these for
+                the console, player counts and its port-conflict check — expect those to stop
+                working for this server.
+              </span>
+            </p>
+          )}
+
+          {isAdmin && rows.length > 0 && (
             <div className="space-y-2">
               {rows.map((row, i) => {
                 const ke = keyError(row.key);
@@ -144,6 +215,7 @@ export function EnvVarsCard({ server, onSaved }: { server: ServerSummary; onSave
             <p className="text-xs text-slate-600 italic">No custom env vars configured.</p>
           )}
 
+          {isAdmin && (
           <div className="flex items-center gap-2 pt-1">
             <button
               className="btn-secondary inline-flex items-center gap-1.5 text-xs"
@@ -162,6 +234,7 @@ export function EnvVarsCard({ server, onSaved }: { server: ServerSummary; onSave
               {busy ? "Saving…" : saved ? "Saved" : "Save"}
             </button>
           </div>
+          )}
 
           {err && <p className="text-xs text-rose-400">{err}</p>}
         </div>

@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   Res,
   StreamableFile,
@@ -29,7 +30,7 @@ import type { CreateServerDto, UpdateServerDto } from "@ark/shared";
 import { ServersService } from "./servers.service";
 import { HistoryService } from "./history.service";
 import { EventsService } from "../events/events.service";
-import { CreateServerBody, UpdateServerBody } from "./servers.dto";
+import { CreateServerBody, UpdateServerBody, ExtraEnvBody } from "./servers.dto";
 import { MinRole } from "../auth/min-role.decorator";
 
 class CopyServerBody {
@@ -128,6 +129,25 @@ export class ServersController {
   @Patch(":id")
   update(@Param("id") id: string, @Body() body: UpdateServerBody) {
     return this.servers.update(id, body as UpdateServerDto);
+  }
+
+  /**
+   * Custom environment variables, admin-only in BOTH directions: the values hold
+   * whatever the user put there — Steam credentials for a pinned build being the
+   * headline case — so operators and viewers can neither read nor set them. The
+   * server summary carries only the names.
+   */
+  @Get(":id/extra-env")
+  @MinRole("admin")
+  getExtraEnv(@Param("id") id: string) {
+    return this.servers.getExtraEnv(id);
+  }
+
+  /** Replace the whole list. Applies on the next start (env is read at create). */
+  @Put(":id/extra-env")
+  @MinRole("admin")
+  setExtraEnv(@Param("id") id: string, @Body() body: ExtraEnvBody) {
+    return this.servers.setExtraEnv(id, body.extraEnv);
   }
 
   /** Pin per-server artwork (each field a URL to set, or null to reset to the

@@ -113,6 +113,21 @@ export const ONE_SHOT_UPDATE_ENV: Partial<Record<Game, Record<string, string>>> 
   [Game.CONAN]: { AUTO_UPDATE: "true", AUTO_UPDATE_CHECK_INTERVAL_HOURS: "8760" },
 };
 
+/**
+ * Whether the user pinned a Steam build via extraEnv and left the image's update
+ * switch alone. TARGET_MANIFEST_ID tells SteamCMD WHICH build to fetch; it has no
+ * effect unless SteamCMD runs, so the pin needs the update env turned on. Honours
+ * an explicit UPDATE_ON_BOOT / ALWAYS_UPDATE_ON_START in extraEnv by standing down.
+ * (Carried over from the original PR #11, moved to this choke point so it isn't
+ * duplicated across the two Palworld specs.)
+ */
+export function needsSteamCmdForPin(extraEnv: EnvVar[] | undefined): boolean {
+  if (!extraEnv?.length) return false;
+  const keys = new Set(extraEnv.map((e) => e.key));
+  if (!keys.has("TARGET_MANIFEST_ID")) return false;
+  return !keys.has("UPDATE_ON_BOOT") && !keys.has("ALWAYS_UPDATE_ON_START");
+}
+
 /** Replace/append `KEY=value` entries in a Docker env array. Docker keeps the LAST
  *  duplicate, but relying on that is fragile — strip the old entries instead. */
 export function forceEnv(env: string[], overrides: Record<string, string>): string[] {
@@ -140,6 +155,12 @@ export function buildContainerSpec(input: RuntimeSpecInput): Docker.ContainerCre
   // After extraEnv so a deliberate one-shot update still wins for that one boot.
   const updateEnv = ONE_SHOT_UPDATE_ENV[input.game];
   if (input.updateRequested && updateEnv) {
+    spec.Env = forceEnv(spec.Env ?? [], updateEnv);
+  } else if (updateEnv && needsSteamCmdForPin(input.extraEnv)) {
+    // Pinning a build with TARGET_MANIFEST_ID only does anything if SteamCMD
+    // actually runs on boot — otherwise the image reads the variable and ignores
+    // it, and the pin silently does nothing. Skipped when the user set the update
+    // key themselves: an explicit choice in extraEnv outranks this inference.
     spec.Env = forceEnv(spec.Env ?? [], updateEnv);
   }
   return spec;

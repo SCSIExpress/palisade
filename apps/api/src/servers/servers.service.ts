@@ -32,6 +32,7 @@ import {
   type ServerStatsDetail,
   type ServerConfigValues,
   type GameArtwork,
+  type EnvVar,
 } from "@ark/shared";
 import { PrismaService } from "../prisma/prisma.service";
 import { CryptoService } from "../crypto/crypto.service";
@@ -809,13 +810,6 @@ export class ServersService implements OnApplicationBootstrap, OnApplicationShut
       data.configJson = JSON.stringify(merged);
       launchChanged = true; // settings feed the generated INI / command line
     }
-    if (dto.extraEnv !== undefined) {
-      const next = JSON.stringify(dto.extraEnv);
-      if (next !== (existing.extraEnvJson ?? "[]")) {
-        data.extraEnvJson = next;
-        launchChanged = true;
-      }
-    }
     if (launchChanged) data.configDirty = true; // → UI shows the Restart button
 
     const updated = await this.prisma.server.update({
@@ -1202,7 +1196,7 @@ export class ServersService implements OnApplicationBootstrap, OnApplicationShut
       iconUrl,
       imageTag: server.imageTag,
       updateRequested: server.updateRequested,
-      extraEnv: JSON.parse(server.extraEnvJson ?? "[]") as Array<{ key: string; value: string }>,
+      extraEnv: this.readExtraEnv(server.extraEnvEnc),
     });
   }
 
@@ -1844,6 +1838,56 @@ export class ServersService implements OnApplicationBootstrap, OnApplicationShut
   }
 
   /**
+   * Decrypt a server's extra env vars. Best-effort: a value written under a
+   * different SECRETS_KEY (restored backup, rotated key) must not take the whole
+   * server down — it degrades to "none set", which the user can see and re-enter.
+   */
+  private readExtraEnv(enc: string | null | undefined): EnvVar[] {
+    if (!enc) return [];
+    try {
+      const parsed = JSON.parse(this.crypto.decrypt(enc)) as unknown;
+      return Array.isArray(parsed) ? (parsed as EnvVar[]) : [];
+    } catch {
+      this.logger.warn("extra env vars could not be decrypted (wrong SECRETS_KEY?) — treating as unset");
+      return [];
+    }
+  }
+
+  /** A server's extra env vars in the clear. Admin-only — the controller gates it. */
+  async getExtraEnv(id: string): Promise<EnvVar[]> {
+    const server = await this.prisma.server.findUnique({ where: { id } });
+    if (!server) throw new NotFoundException("Server not found");
+    return this.readExtraEnv(server.extraEnvEnc);
+  }
+
+  /**
+   * Replace a server's extra env vars (the whole list, every save). Stored
+   * encrypted; flags configDirty so the UI offers the Restart that applies them,
+   * since env is only read when the container is created.
+   */
+  async setExtraEnv(id: string, vars: EnvVar[]): Promise<ServerSummary> {
+    const server = await this.prisma.server.findUnique({ where: { id } });
+    if (!server) throw new NotFoundException("Server not found");
+    const changed = JSON.stringify(this.readExtraEnv(server.extraEnvEnc)) !== JSON.stringify(vars);
+    const updated = await this.prisma.server.update({
+      where: { id },
+      data: {
+        extraEnvEnc: vars.length ? this.crypto.encrypt(JSON.stringify(vars)) : null,
+        ...(changed ? { configDirty: true } : {}),
+      },
+    });
+    if (changed) {
+      await this.events.emit({
+        type: EventType.ConfigChanged,
+        // Names only — the values are the secret part.
+        message: `Custom environment variables updated (${vars.length ? vars.map((v) => v.key).join(", ") : "none"}) — restart to apply`,
+        serverId: id,
+      });
+    }
+    return this.toSummary(updated as ServerRow);
+  }
+
+  /**
    * Make sure the bridge network this spec attaches to actually exists. Docker's own
    * failure here is "(HTTP code 404) no such container - network ark-net not found",
    * which reads like a container problem and sent a user hunting (GH #31). Host-network
@@ -1943,7 +1987,9 @@ export class ServersService implements OnApplicationBootstrap, OnApplicationShut
       modIds: JSON.parse(row.modIds) as number[],
       ramLimitMb: row.ramLimitMb,
       cpuLimit: row.cpuLimit,
-      extraEnv: JSON.parse(row.extraEnvJson ?? "[]") as Array<{ key: string; value: string }>,
+      // Names only. Values are secrets (Steam credentials, API keys) and are
+      // readable solely through the admin-gated extra-env endpoint.
+      extraEnvKeys: this.readExtraEnv(row.extraEnvEnc).map((e) => e.key),
       artwork: row.artworkJson ? (JSON.parse(row.artworkJson) as GameArtwork) : null,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),

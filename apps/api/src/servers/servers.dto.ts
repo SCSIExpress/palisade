@@ -50,8 +50,6 @@ export class CreateServerBody {
   @IsOptional() @ImageTagField() imageTag?: string | null;
   /** Import only: host path of an existing Saved dir to copy in. */
   @IsOptional() @IsString() savedSourcePath?: string;
-  /** User-defined extra env vars injected into the game container. */
-  @IsOptional() @IsArray() @ArrayMaxSize(64) @ValidateNested({ each: true }) @Type(() => EnvVarItem) extraEnv?: EnvVarItem[];
 }
 
 export class UpdateServerBody {
@@ -72,8 +70,15 @@ export class UpdateServerBody {
   @IsOptional() @IsObject() config?: Record<string, unknown>;
   /** Advanced: pin the game image to a specific tag (null clears the pin). */
   @IsOptional() @ImageTagField() imageTag?: string | null;
-  /** User-defined extra env vars injected into the game container. */
-  @IsOptional() @IsArray() @ArrayMaxSize(64) @ValidateNested({ each: true }) @Type(() => EnvVarItem) extraEnv?: EnvVarItem[];
+}
+
+/**
+ * Replace a server's custom env vars. Its own admin-only endpoint rather than a
+ * field on UpdateServerBody: the values routinely hold credentials, and the
+ * general update route is open to operators.
+ */
+export class ExtraEnvBody {
+  @IsArray() @ArrayMaxSize(64) @ValidateNested({ each: true }) @Type(() => EnvVarItem) extraEnv!: EnvVarItem[];
 }
 
 export class RconBody {

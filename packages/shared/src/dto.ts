@@ -51,8 +51,11 @@ export interface ServerSummary {
   modIds: number[];
   ramLimitMb?: number | null;
   cpuLimit?: number | null;
-  /** User-defined extra env vars injected into the game container at start. */
-  extraEnv: EnvVar[];
+  /** NAMES of the user-defined env vars injected into the game container at start.
+   *  Values are deliberately absent: they routinely hold credentials (Steam login
+   *  for a pinned build), and this summary is readable by every role. Read them
+   *  through the admin-only GET /servers/:id/extra-env. */
+  extraEnvKeys: string[];
   /** Per-server SteamGridDB art override (each field null = use the game default). */
   artwork?: GameArtwork | null;
   createdAt: string;
@@ -174,9 +177,6 @@ export interface CreateServerDto {
   /** Advanced: pin the game image to a specific tag instead of the shipped default
    *  (null clears the pin). Applied on the next start (pull + recreate). */
   imageTag?: string | null;
-  /** User-defined extra env vars injected into the game container. Replaces the
-   *  full list on every save. */
-  extraEnv?: EnvVar[];
 }
 
 export type UpdateServerDto = Partial<CreateServerDto> & {

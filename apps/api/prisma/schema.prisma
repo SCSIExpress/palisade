@@ -92,8 +92,12 @@ model Server {
   ramLimitMb       Int?
   cpuLimit         Float?
   // User-defined extra environment variables injected into the game container.
-  // JSON: Array<{ key: string; value: string }>
-  extraEnvJson     String   @default("[]")
+  // ENCRYPTED at rest (AES-256-GCM via SECRETS_KEY), like the password columns:
+  // the headline use case for this feature is pinning a Palworld build, which
+  // needs STEAM_USERNAME/STEAM_PASSWORD alongside TARGET_MANIFEST_ID. Plaintext
+  // JSON here would put a Steam password in the clear. Null = none set.
+  // Decrypts to: Array<{ key: string; value: string }>
+  extraEnvEnc      String?
 
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
