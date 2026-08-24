@@ -9,9 +9,25 @@ import {
   IsString,
   Matches,
   Min,
+  ValidateNested,
+  ArrayMaxSize,
 } from "class-validator";
+import { Type } from "class-transformer";
 import { Game } from "@ark/shared";
 import { IMAGE_TAG_RE } from "../common/images";
+
+/** Validated representation of a single user-defined env var. */
+export class EnvVarItem {
+  /** Keys must follow POSIX variable-name rules so they're safe inside a Docker
+   *  env array (no shell expansion is involved, but junk keys confuse images). */
+  @Matches(/^[A-Za-z_][A-Za-z0-9_]{0,127}$/, { message: "key must be a valid env var name (letters, digits, underscores; cannot start with a digit)" })
+  key!: string;
+
+  /** No null bytes; arbitrary printable string up to 4096 chars. */
+  @IsString()
+  @Matches(/^[^\x00]{0,4096}$/, { message: "value must not contain null bytes and must be ≤4096 characters" })
+  value!: string;
+}
 
 /** Reusable: an optional, validated Docker image tag (null clears the pin). */
 const ImageTagField = () =>
@@ -54,6 +70,15 @@ export class UpdateServerBody {
   @IsOptional() @IsObject() config?: Record<string, unknown>;
   /** Advanced: pin the game image to a specific tag (null clears the pin). */
   @IsOptional() @ImageTagField() imageTag?: string | null;
+}
+
+/**
+ * Replace a server's custom env vars. Its own admin-only endpoint rather than a
+ * field on UpdateServerBody: the values routinely hold credentials, and the
+ * general update route is open to operators.
+ */
+export class ExtraEnvBody {
+  @IsArray() @ArrayMaxSize(64) @ValidateNested({ each: true }) @Type(() => EnvVarItem) extraEnv!: EnvVarItem[];
 }
 
 export class RconBody {

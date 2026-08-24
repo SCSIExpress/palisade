@@ -7,6 +7,7 @@ import {
   type ServerConfigValues,
   type SettingsCatalog,
   type MotdValue,
+  type EnvVar,
 } from "@ark/shared";
 import { buildCustomArgs, isBattlEyeDisabled } from "../catalog/command-line";
 import { VALHEIM_MODIFIER_CATEGORY } from "../catalog/valheim.catalog";
@@ -89,6 +90,9 @@ export interface RuntimeSpecInput {
   /** Advanced: pin the game image to a specific tag (e.g. a prior version) instead of
    *  the shipped default. Invalid/blank falls back to the default tag. */
   imageTag?: string | null;
+  /** User-defined extra env vars to inject into the container (appended last so they
+   *  can override any built-in variable). */
+  extraEnv?: EnvVar[];
   /** One-shot: this start should update the game files. For games whose image updater
    *  the manager normally disables, forces the image's update env for this boot only
    *  (see ONE_SHOT_UPDATE_ENV). No-op for games that already update on boot. */
@@ -109,6 +113,21 @@ export const ONE_SHOT_UPDATE_ENV: Partial<Record<Game, Record<string, string>>> 
   [Game.CONAN]: { AUTO_UPDATE: "true", AUTO_UPDATE_CHECK_INTERVAL_HOURS: "8760" },
 };
 
+/**
+ * Whether the user pinned a Steam build via extraEnv and left the image's update
+ * switch alone. TARGET_MANIFEST_ID tells SteamCMD WHICH build to fetch; it has no
+ * effect unless SteamCMD runs, so the pin needs the update env turned on. Honours
+ * an explicit UPDATE_ON_BOOT / ALWAYS_UPDATE_ON_START in extraEnv by standing down.
+ * (Carried over from the original PR #11, moved to this choke point so it isn't
+ * duplicated across the two Palworld specs.)
+ */
+export function needsSteamCmdForPin(extraEnv: EnvVar[] | undefined): boolean {
+  if (!extraEnv?.length) return false;
+  const keys = new Set(extraEnv.map((e) => e.key));
+  if (!keys.has("TARGET_MANIFEST_ID")) return false;
+  return !keys.has("UPDATE_ON_BOOT") && !keys.has("ALWAYS_UPDATE_ON_START");
+}
+
 /** Replace/append `KEY=value` entries in a Docker env array. Docker keeps the LAST
  *  duplicate, but relying on that is fragile — strip the old entries instead. */
 export function forceEnv(env: string[], overrides: Record<string, string>): string[] {
@@ -125,9 +144,23 @@ export function buildContainerSpec(input: RuntimeSpecInput): Docker.ContainerCre
   // Each game spec sets Image to its shipped default; apply a pinned tag here (one
   // choke point) so an advanced user can run a specific version.
   spec.Image = imageRefFor(input.game, input.imageTag);
+  // Append user-defined extra env vars last so they can override any built-in key.
+  if (input.extraEnv && input.extraEnv.length > 0) {
+    spec.Env = [
+      ...(spec.Env ?? []),
+      ...input.extraEnv.map(({ key, value }) => `${key}=${value}`),
+    ];
+  }
   // One-shot update: force the image's update env for this boot (GH #8/#12/#14).
+  // After extraEnv so a deliberate one-shot update still wins for that one boot.
   const updateEnv = ONE_SHOT_UPDATE_ENV[input.game];
   if (input.updateRequested && updateEnv) {
+    spec.Env = forceEnv(spec.Env ?? [], updateEnv);
+  } else if (updateEnv && needsSteamCmdForPin(input.extraEnv)) {
+    // Pinning a build with TARGET_MANIFEST_ID only does anything if SteamCMD
+    // actually runs on boot — otherwise the image reads the variable and ignores
+    // it, and the pin silently does nothing. Skipped when the user set the update
+    // key themselves: an explicit choice in extraEnv outranks this inference.
     spec.Env = forceEnv(spec.Env ?? [], updateEnv);
   }
   return spec;

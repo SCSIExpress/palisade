@@ -2,6 +2,12 @@ import type { Game, PortSet } from "./game";
 import type { ServerState } from "./server-state";
 import type { ServerConfigValues } from "./settings-catalog";
 
+/** A single user-defined environment variable to inject into the game container. */
+export interface EnvVar {
+  key: string;
+  value: string;
+}
+
 /** Public (no secrets) view of a server instance. */
 export interface ServerSummary {
   id: string;
@@ -45,6 +51,11 @@ export interface ServerSummary {
   modIds: number[];
   ramLimitMb?: number | null;
   cpuLimit?: number | null;
+  /** NAMES of the user-defined env vars injected into the game container at start.
+   *  Values are deliberately absent: they routinely hold credentials (Steam login
+   *  for a pinned build), and this summary is readable by every role. Read them
+   *  through the admin-only GET /servers/:id/extra-env. */
+  extraEnvKeys: string[];
   /** Per-server SteamGridDB art override (each field null = use the game default). */
   artwork?: GameArtwork | null;
   createdAt: string;
