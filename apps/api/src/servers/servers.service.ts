@@ -1009,6 +1009,14 @@ export class ServersService implements OnApplicationBootstrap, OnApplicationShut
         message: `Restarting to update ${label}. The image downloads the new build during boot, so this start takes longer than usual.`,
       };
     }
+    // Say so even though nothing happens yet: a SCHEDULED update lands here whenever
+    // the server is down, and without an event the schedule fires and leaves no trace
+    // for the user who set it.
+    await this.events.emit({
+      type: EventType.ConfigChanged,
+      message: `${label} is set to update on the next start of "${server.name}"`,
+      serverId: id,
+    });
     return {
       applied: "next-start",
       message: `${label} will update on the next start — the image downloads the new build during boot.`,

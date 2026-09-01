@@ -45,7 +45,7 @@ function makeSvc(row: { id: string; game: Game; state: ServerState }) {
   // The service restarts DETACHED (a game update is the longest boot there is), so
   // this is the call the assertions below care about.
   const restart = vi.spyOn(svc, "restartDetached").mockResolvedValue(undefined);
-  return { svc, restart, prisma };
+  return { svc, restart, prisma, events };
 }
 
 /** The flag the next start consumes, or undefined when nothing was armed. */
@@ -65,6 +65,17 @@ describe("updateGame()", () => {
     expect(res.applied).toBe("next-start");
     expect(armed(prisma)).toContainEqual({ updateRequested: true });
     expect(restart).not.toHaveBeenCalled();
+  });
+
+  it("records the armed update even though nothing starts yet", async () => {
+    // A scheduled update on a stopped server lands here; with no event the schedule
+    // fires and leaves nothing behind for whoever set it.
+    const { svc, events } = makeSvc({ id: "s1", game: Game.PALWORLD, state: ServerState.Stopped });
+    await svc.updateGame("s1");
+    expect(events.emit).toHaveBeenCalledTimes(1);
+    expect(events.emit).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringMatching(/next start/i) }),
+    );
   });
 
   it("restarts a running server so the update happens now", async () => {
