@@ -354,6 +354,10 @@ export interface UserDto {
   role: Role;
   /** Only the granted servers (plus members of granted clusters) are visible. */
   restricted: boolean;
+  /** Linked to a single sign-on (OIDC) identity. */
+  sso: boolean;
+  /** False for accounts SSO created, which have no password and so cannot be unlinked. */
+  hasPassword: boolean;
   serverIds: string[];
   clusterIds: string[];
   createdAt?: string;
